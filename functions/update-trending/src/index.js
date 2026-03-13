@@ -17,7 +17,7 @@ module.exports = async ({ req, res, log }) => {
 
         for (let page = 0; page < 5; page += 1) {
             const queries = [
-                sdk.Query.equal('status', ['active']),
+                sdk.Query.equal('status', 'active'),
                 sdk.Query.greaterThan('$createdAt', cutoff48h),
                 sdk.Query.limit(pageSize),
                 sdk.Query.select([

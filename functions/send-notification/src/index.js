@@ -84,7 +84,7 @@ module.exports = async ({ req, res, log }) => {
             type: type ?? 'general',
             title,
             body: msgBody,
-            payload: payload ? JSON.stringify(payload) : null,
+            payload: payload ? JSON.stringify(payload) : '{}',
             read: false,
             createdAt: new Date().toISOString(),
         });

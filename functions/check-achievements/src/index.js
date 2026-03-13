@@ -26,15 +26,15 @@ module.exports = async ({ req, res, log }) => {
 
         const [debatesResponse, commentsResponse, votesResponse] = await Promise.all([
             db.listDocuments(process.env.DATABASE_ID, 'debates', [
-                sdk.Query.equal('creatorId', [userId]),
+                sdk.Query.equal('creatorId', userId),
                 sdk.Query.limit(1),
             ]),
             db.listDocuments(process.env.DATABASE_ID, 'comments', [
-                sdk.Query.equal('userId', [userId]),
+                sdk.Query.equal('userId', userId),
                 sdk.Query.limit(1),
             ]),
             db.listDocuments(process.env.DATABASE_ID, 'votes', [
-                sdk.Query.equal('userId', [userId]),
+                sdk.Query.equal('userId', userId),
                 sdk.Query.limit(1),
             ]),
         ]);
@@ -47,7 +47,7 @@ module.exports = async ({ req, res, log }) => {
         };
 
         const existingBadges = await db.listDocuments(process.env.DATABASE_ID, 'badges', [
-            sdk.Query.equal('userId', [userId]),
+            sdk.Query.equal('userId', userId),
             sdk.Query.limit(100),
             sdk.Query.select(['badgeType']),
         ]);

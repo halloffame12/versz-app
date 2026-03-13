@@ -41,7 +41,7 @@ module.exports = async ({ req, res, log }) => {
                 id: user.$id,
                 displayName: user.displayName || user.username || 'Unknown',
                 avatar: user.avatar || null,
-                xp: Number(user.xp ?? user.reputation ?? 0),
+                xp: Number(user.xp ?? 0),
                 weeklyXp: Number(user.weeklyXp ?? 0),
                 winRate: Number(user.winRate ?? 0),
             }))

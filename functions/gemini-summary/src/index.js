@@ -18,8 +18,8 @@ module.exports = async ({ req, res, log }) => {
         const debate = await db.getDocument(process.env.DATABASE_ID, 'debates', debateId);
 
         const commentsRes = await db.listDocuments(process.env.DATABASE_ID, 'comments', [
-            sdk.Query.equal('debateId', [debateId]),
-            sdk.Query.equal('isDeleted', [false]),
+            sdk.Query.equal('debateId', debateId),
+            sdk.Query.equal('isDeleted', false),
             sdk.Query.orderDesc('upvotes'),
             sdk.Query.limit(20),
             sdk.Query.select(['content', 'side', 'upvotes', 'username']),
