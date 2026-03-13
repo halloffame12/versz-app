@@ -65,10 +65,12 @@ class RoomNotifier extends StateNotifier<RoomState> {
         data: {
           'name': room.name,
           'description': room.description,
-          'creator_id': room.creatorId,
-          'icon_url': room.iconUrl,
-          'banner_url': room.bannerUrl,
-          'members_count': 1, // Creator is first member
+          'creatorId': room.creatorId,
+          'avatar': room.iconUrl,
+          'banner': room.bannerUrl,
+          'memberCount': 1,
+          'createdAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
         },
       );
       await fetchRooms();

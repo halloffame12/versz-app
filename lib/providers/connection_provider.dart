@@ -82,7 +82,8 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
       } else {
         final status = _parseStatus(existing.data['status']?.toString());
         updated[otherUserId] = status;
-        incoming[otherUserId] = status == ConnectionStatus.pending && existing.data['receiver_id'] == me.$id;
+        final receiverId = existing.data['receiverId']?.toString();
+        incoming[otherUserId] = status == ConnectionStatus.pending && receiverId == me.$id;
       }
 
       state = state.copyWith(statusByUser: updated, pendingIncomingByUser: incoming, error: null);
@@ -129,7 +130,7 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
       documentId: existing.$id,
       data: {
         'status': 'connected',
-        'updated_at': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       },
     );
 
@@ -162,8 +163,8 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
         queries: [
           Query.equal('status', 'connected'),
           Query.or([
-            Query.equal('requester_id', me.$id),
-            Query.equal('receiver_id', me.$id),
+            Query.equal('requesterId', me.$id),
+            Query.equal('receiverId', me.$id),
           ]),
           Query.limit(100),
         ],
@@ -171,8 +172,8 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
 
       final users = <UserAccount>[];
       for (final doc in res.documents) {
-        final requester = doc.data['requester_id']?.toString();
-        final receiver = doc.data['receiver_id']?.toString();
+        final requester = doc.data['requesterId']?.toString();
+        final receiver = doc.data['receiverId']?.toString();
         final other = requester == me.$id ? receiver : requester;
         if (other == null) continue;
         final user = await _getUser(other);
@@ -195,8 +196,8 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
         queries: [
           Query.equal('status', 'pending'),
           Query.or([
-            Query.equal('requester_id', me.$id),
-            Query.equal('receiver_id', me.$id),
+            Query.equal('requesterId', me.$id),
+            Query.equal('receiverId', me.$id),
           ]),
           Query.limit(100),
         ],
@@ -206,8 +207,8 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
       final sent = <UserAccount>[];
 
       for (final doc in res.documents) {
-        final requester = doc.data['requester_id']?.toString();
-        final receiver = doc.data['receiver_id']?.toString();
+        final requester = doc.data['requesterId']?.toString();
+        final receiver = doc.data['receiverId']?.toString();
         if (requester == null || receiver == null) continue;
 
         if (receiver == me.$id) {
@@ -242,10 +243,11 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
           collectionId: AppwriteConstants.connections,
           documentId: ID.unique(),
           data: {
-            'requester_id': me.$id,
-            'receiver_id': otherUserId,
+            'requesterId': me.$id,
+            'receiverId': otherUserId,
             'status': statusString,
-            'updated_at': DateTime.now().toIso8601String(),
+            'createdAt': DateTime.now().toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
           },
         );
       } else {
@@ -255,7 +257,7 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
           documentId: existing.$id,
           data: {
             'status': statusString,
-            'updated_at': DateTime.now().toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
           },
         );
       }
@@ -295,12 +297,12 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
       queries: [
         Query.or([
           Query.and([
-            Query.equal('requester_id', myId),
-            Query.equal('receiver_id', otherUserId),
+            Query.equal('requesterId', myId),
+            Query.equal('receiverId', otherUserId),
           ]),
           Query.and([
-            Query.equal('requester_id', otherUserId),
-            Query.equal('receiver_id', myId),
+            Query.equal('requesterId', otherUserId),
+            Query.equal('receiverId', myId),
           ]),
         ]),
         Query.limit(1),

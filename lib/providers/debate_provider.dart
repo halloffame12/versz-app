@@ -106,14 +106,14 @@ class DebateNotifier extends StateNotifier<DebateState> {
       final queries = <String>[Query.limit(_pageSize)];
 
       if (effectiveFeedType == DebateFeedType.trending) {
-        queries.add(Query.orderDesc('agree_count'));
+        queries.add(Query.orderDesc('agreeCount'));
         queries.add(Query.orderDesc('\$createdAt'));
       } else {
         queries.add(Query.orderDesc('\$createdAt'));
       }
 
       if (effectiveCategoryId != null) {
-        queries.add(Query.equal('category_id', effectiveCategoryId));
+        queries.add(Query.equal('category', effectiveCategoryId));
       }
 
       if (effectiveFeedType == DebateFeedType.following) {
@@ -131,7 +131,7 @@ class DebateNotifier extends StateNotifier<DebateState> {
           return;
         }
 
-        queries.add(Query.equal('creator_id', followingIds));
+        queries.add(Query.equal('creatorId', followingIds));
       }
 
       final cursor = refresh ? null : state.lastDocumentId;
@@ -205,9 +205,8 @@ class DebateNotifier extends StateNotifier<DebateState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.votesCollection,
         queries: [
-          Query.equal('target_id', debateId),
-          Query.equal('user_id', user.$id),
-          Query.equal('target_type', 'debate'),
+          Query.equal('debateId', debateId),
+          Query.equal('userId', user.$id),
           Query.limit(1),
         ],
       );
@@ -225,7 +224,7 @@ class DebateNotifier extends StateNotifier<DebateState> {
             databaseId: AppwriteConstants.databaseId,
             collectionId: AppwriteConstants.votesCollection,
             documentId: doc.$id,
-            data: {'value': newVote},
+            data: {'side': newVote == 1 ? 'agree' : 'disagree'},
           );
         }
       } else if (newVote != null) {
@@ -234,10 +233,10 @@ class DebateNotifier extends StateNotifier<DebateState> {
           collectionId: AppwriteConstants.votesCollection,
           documentId: ID.unique(),
           data: {
-            'user_id': user.$id,
-            'target_id': debateId,
-            'target_type': 'debate',
-            'value': newVote,
+            'userId': user.$id,
+            'debateId': debateId,
+            'side': newVote == 1 ? 'agree' : 'disagree',
+            'createdAt': DateTime.now().toIso8601String(),
           },
         );
       }
@@ -248,10 +247,9 @@ class DebateNotifier extends StateNotifier<DebateState> {
         collectionId: AppwriteConstants.debatesCollection,
         documentId: debateId,
         data: {
-          'agree_count': updated.upvotes,
-          'disagree_count': updated.downvotes,
-          'upvotes': updated.upvotes,
-          'downvotes': updated.downvotes,
+          'agreeCount': updated.upvotes,
+          'disagreeCount': updated.downvotes,
+          'updatedAt': DateTime.now().toIso8601String(),
         },
       );
     } catch (e) {
@@ -283,8 +281,8 @@ class DebateNotifier extends StateNotifier<DebateState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: likesCollection,
         queries: [
-          Query.equal('debate_id', debateId),
-          Query.equal('user_id', user.$id),
+          Query.equal('debateId', debateId),
+          Query.equal('userId', user.$id),
           Query.limit(1),
         ],
       );
@@ -301,8 +299,9 @@ class DebateNotifier extends StateNotifier<DebateState> {
           collectionId: likesCollection,
           documentId: ID.unique(),
           data: {
-            'debate_id': debateId,
-            'user_id': user.$id,
+            'debateId': debateId,
+            'userId': user.$id,
+            'createdAt': DateTime.now().toIso8601String(),
           },
         );
       }
@@ -330,8 +329,8 @@ class DebateNotifier extends StateNotifier<DebateState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: saveCollection,
         queries: [
-          Query.equal('user_id', user.$id),
-          Query.equal('debate_id', debateId),
+          Query.equal('userId', user.$id),
+          Query.equal('debateId', debateId),
           Query.limit(1),
         ],
       );
@@ -348,8 +347,9 @@ class DebateNotifier extends StateNotifier<DebateState> {
           collectionId: saveCollection,
           documentId: ID.unique(),
           data: {
-            'user_id': user.$id,
-            'debate_id': debateId,
+            'userId': user.$id,
+            'debateId': debateId,
+            'createdAt': DateTime.now().toIso8601String(),
           },
         );
       }
@@ -372,18 +372,19 @@ class DebateNotifier extends StateNotifier<DebateState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.votesCollection,
         queries: [
-          Query.equal('user_id', user.$id),
-          Query.equal('target_type', 'debate'),
-          Query.equal('target_id', debateIds),
+          Query.equal('userId', user.$id),
+          Query.equal('debateId', debateIds),
           Query.limit(200),
         ],
       );
 
       final userVotes = <String, int?>{};
       for (final doc in votesRes.documents) {
-        final targetId = doc.data['target_id'] as String?;
-        final value = doc.data['value'] as int?;
-        if (targetId != null) userVotes[targetId] = value;
+        final debateId = doc.data['debateId'] as String?;
+        // v3 uses side:'agree'|'disagree'; map back to int for UI compat.
+        final side = doc.data['side']?.toString();
+        final value = side == 'agree' ? 1 : (side == 'disagree' ? -1 : null);
+        if (debateId != null) userVotes[debateId] = value;
       }
 
       final likes = <String>{};
@@ -392,13 +393,13 @@ class DebateNotifier extends StateNotifier<DebateState> {
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.likes,
           queries: [
-            Query.equal('user_id', user.$id),
-            Query.equal('debate_id', debateIds),
+            Query.equal('userId', user.$id),
+            Query.equal('debateId', debateIds),
             Query.limit(200),
           ],
         );
         for (final doc in likesRes.documents) {
-          final id = doc.data['debate_id'] as String?;
+          final id = doc.data['debateId'] as String?;
           if (id != null) likes.add(id);
         }
       } catch (_) {
@@ -411,13 +412,13 @@ class DebateNotifier extends StateNotifier<DebateState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: saveCollection,
         queries: [
-          Query.equal('user_id', user.$id),
-          Query.equal('debate_id', debateIds),
+          Query.equal('userId', user.$id),
+          Query.equal('debateId', debateIds),
           Query.limit(200),
         ],
       );
       for (final doc in savesRes.documents) {
-        final id = doc.data['debate_id'] as String?;
+        final id = doc.data['debateId'] as String?;
         if (id != null) saves.add(id);
       }
 
@@ -457,8 +458,8 @@ class DebateNotifier extends StateNotifier<DebateState> {
           documentId: debate.creatorId,
         );
         creatorName =
-            (profile.data['display_name'] ?? profile.data['username'] ?? creatorName).toString();
-        creatorAvatar = profile.data['avatar_url']?.toString();
+            (profile.data['displayName'] ?? profile.data['username'] ?? creatorName).toString();
+        creatorAvatar = profile.data['avatar']?.toString();
       } catch (_) {
         // Fall back to a safe required value for creator_name.
       }
@@ -468,20 +469,20 @@ class DebateNotifier extends StateNotifier<DebateState> {
         collectionId: AppwriteConstants.debatesCollection,
         documentId: documentId,
         data: {
-          'title': debate.title,
+          'topic': debate.title,
           'description': debate.description,
-          'category_id': debate.categoryId,
-          'creator_id': debate.creatorId,
-          'creator_name': creatorName,
-          'creator_avatar': creatorAvatar,
-          'media_type': debate.mediaType,
-          'media_url': debate.mediaUrl,
-          'agree_count': 0,
-          'disagree_count': 0,
-          'upvotes': 0,
-          'downvotes': 0,
-          'comment_count': 0,
+          'category': debate.categoryId,
+          'creatorId': debate.creatorId,
+          'creatorName': creatorName,
+          'creatorAvatar': creatorAvatar,
+          'imageUrl': debate.mediaUrl,
+          'agreeCount': 0,
+          'disagreeCount': 0,
+          'commentCount': 0,
+          'viewCount': 0,
+          'likeCount': 0,
           'status': 'active',
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
       state = state.copyWith(isLoading: false);
@@ -496,30 +497,21 @@ class DebateNotifier extends StateNotifier<DebateState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.connections,
         queries: [
-          Query.equal('requester_id', userId),
+          Query.equal('requesterId', userId),
           Query.equal('status', ['follow', 'connected']),
           Query.limit(100),
         ],
       );
 
       final ids = connectionsRes.documents
-          .map((doc) => doc.data['receiver_id'] as String?)
+          .map((doc) => doc.data['receiverId'] as String?)
           .whereType<String>()
           .toList();
       if (ids.isNotEmpty) return ids;
     } catch (_) {
-      // Fall through to legacy follows collection.
+      return const [];
     }
 
-    final followsRes = await _appwrite.databases.listDocuments(
-      databaseId: AppwriteConstants.databaseId,
-      collectionId: AppwriteConstants.followsCollection,
-      queries: [Query.equal('follower_id', userId), Query.limit(100)],
-    );
-
-    return followsRes.documents
-        .map((doc) => doc.data['following_id'] as String?)
-        .whereType<String>()
-        .toList();
+    return const [];
   }
 }

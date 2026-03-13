@@ -57,12 +57,12 @@ class RoomMembersNotifier extends StateNotifier<RoomMembersState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.roomMembersCollection,
         queries: [
-          Query.equal('room_id', _roomId),
+          Query.equal('communityId', _roomId),
           Query.limit(100),
         ],
       );
 
-      final memberIds = response.documents.map((doc) => doc.data['user_id'] as String).toList();
+      final memberIds = response.documents.map((doc) => doc.data['userId'] as String).toList();
       
       // Fetch user profiles
       final members = <UserAccount>[];
@@ -96,9 +96,11 @@ class RoomMembersNotifier extends StateNotifier<RoomMembersState> {
         collectionId: AppwriteConstants.roomMembersCollection,
         documentId: ID.unique(),
         data: {
-          'room_id': _roomId,
-          'user_id': userId,
+          'communityId': _roomId,
+          'userId': userId,
           'role': 'member',
+          'status': 'active',
+          'joinedAt': DateTime.now().toIso8601String(),
         },
       );
 
@@ -109,12 +111,12 @@ class RoomMembersNotifier extends StateNotifier<RoomMembersState> {
         documentId: _roomId,
       );
 
-      final memberCount = (room.data['members_count'] ?? 0) as int;
+      final memberCount = (room.data['memberCount'] ?? 0) as int;
       await _appwrite.databases.updateDocument(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.roomsCollection,
         documentId: _roomId,
-        data: {'members_count': memberCount + 1},
+        data: {'memberCount': memberCount + 1},
       );
 
       await _loadMembers();
@@ -130,8 +132,8 @@ class RoomMembersNotifier extends StateNotifier<RoomMembersState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.roomMembersCollection,
         queries: [
-          Query.equal('room_id', _roomId),
-          Query.equal('user_id', userId),
+          Query.equal('communityId', _roomId),
+          Query.equal('userId', userId),
         ],
       );
 
@@ -149,12 +151,12 @@ class RoomMembersNotifier extends StateNotifier<RoomMembersState> {
           documentId: _roomId,
         );
 
-        final memberCount = (room.data['members_count'] ?? 0) as int;
+        final memberCount = (room.data['memberCount'] ?? 0) as int;
         await _appwrite.databases.updateDocument(
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.roomsCollection,
           documentId: _roomId,
-          data: {'members_count': (memberCount - 1).clamp(0, 9999999)},
+          data: {'memberCount': (memberCount - 1).clamp(0, 9999999)},
         );
 
         await _loadMembers();

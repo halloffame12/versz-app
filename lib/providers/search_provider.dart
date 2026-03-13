@@ -135,7 +135,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.debatesCollection,
         queries: [
-          Query.search('title', query),
+          Query.search('topic', query),
           Query.limit(10),
         ],
       );
@@ -176,7 +176,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.usersCollection,
         queries: [
-          Query.search('display_name', query),
+          Query.search('displayName', query),
           Query.limit(10),
         ],
       );
@@ -209,7 +209,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
       return response.documents.map((doc) {
         final tag = (doc.data['tag'] ?? '').toString();
-        final count = (doc.data['debate_count'] ?? 0) as int;
+        final count = (doc.data['debateCount'] ?? 0) as int;
         return HashtagResult(tag: tag, debateCount: count);
       }).where((item) => item.tag.isNotEmpty).toList();
     } catch (e) {
@@ -223,7 +223,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.roomsCollection,
         queries: [
-          Query.orderDesc('members_count'),
+          Query.orderDesc('memberCount'),
           Query.limit(5),
         ],
       );
@@ -254,10 +254,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
         final debates = await _appwrite.databases.listDocuments(
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.debatesCollection,
-          queries: [Query.orderDesc('agree_count'), Query.limit(8)],
+          queries: [Query.orderDesc('agreeCount'), Query.limit(8)],
         );
         return debates.documents
-            .map((doc) => (doc.data['title'] ?? '').toString())
+            .map((doc) => (doc.data['topic'] ?? doc.data['title'] ?? '').toString())
             .where((e) => e.trim().isNotEmpty)
             .toList();
       } catch (_) {

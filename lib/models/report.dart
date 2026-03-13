@@ -22,9 +22,9 @@ class Report extends Equatable {
   factory Report.fromMap(Map<String, dynamic> map) {
     return Report(
       id: map['\$id'] ?? '',
-      reporterId: map['reporter_id'] ?? '',
-      targetId: map['target_id'] ?? '',
-      targetType: map['target_type'] ?? '',
+      reporterId: map['reporterId'] ?? '',
+      targetId: map['targetId'] ?? '',
+      targetType: map['targetType'] ?? '',
       reason: map['reason'] ?? '',
       status: map['status'] ?? 'pending',
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
@@ -33,9 +33,9 @@ class Report extends Equatable {
 
   Map<String, dynamic> toMap() {
     return {
-      'reporter_id': reporterId,
-      'target_id': targetId,
-      'target_type': targetType,
+      'reporterId': reporterId,
+      'targetId': targetId,
+      'targetType': targetType,
       'reason': reason,
       'status': status,
     };

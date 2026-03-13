@@ -2,7 +2,7 @@
     "name": "update-leaderboard",
     "version": "1.0.0",
     "description": "Update leaderboard cache",
-    "main": "src/main.js",
+    "main": "src/index.js",
     "dependencies": {
         "node-appwrite": "^14.0.0"
     }

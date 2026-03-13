@@ -1,42 +1,39 @@
 import 'package:equatable/equatable.dart';
 
+/// v3 votes schema: voteId, debateId, userId, side ('agree'|'disagree'), createdAt
 class Vote extends Equatable {
   final String id;
+  final String debateId;
   final String userId;
-  final String targetId;
-  final String targetType; // 'debate', 'comment'
-  final int value; // 1 for upvote, -1 for downvote
+  final String side; // 'agree' or 'disagree'
   final DateTime createdAt;
 
   const Vote({
     required this.id,
+    required this.debateId,
     required this.userId,
-    required this.targetId,
-    required this.targetType,
-    required this.value,
+    required this.side,
     required this.createdAt,
   });
 
   factory Vote.fromMap(Map<String, dynamic> map) {
     return Vote(
       id: map['\$id'] ?? '',
-      userId: map['user_id'] ?? '',
-      targetId: map['target_id'] ?? '',
-      targetType: map['target_type'] ?? '',
-      value: map['value'] ?? 0,
+      debateId: map['debateId'] ?? '',
+      userId: map['userId'] ?? '',
+      side: map['side'] ?? 'agree',
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'user_id': userId,
-      'target_id': targetId,
-      'target_type': targetType,
-      'value': value,
+      'debateId': debateId,
+      'userId': userId,
+      'side': side,
     };
   }
 
   @override
-  List<Object?> get props => [id, userId, targetId, targetType, value, createdAt];
+  List<Object?> get props => [id, debateId, userId, side, createdAt];
 }

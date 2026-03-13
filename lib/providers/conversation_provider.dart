@@ -93,21 +93,19 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
       _selfUserId ??= (await _appwrite.account.get()).$id;
 
       _realtime.subscribe([
-        'databases.default.collections.${AppwriteConstants.messagesCollection}.documents',
         'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.messagesCollection}.documents',
-        'databases.default.collections.${AppwriteConstants.typingStatus}.documents',
         'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.typingStatus}.documents',
       ]);
 
       _realtime.stream.listen((event) {
         final data = event.payload;
 
-        // Typing payloads carry `is_typing` while messages do not.
-        if (data.containsKey('is_typing')) {
-          final chatId = data['chat_id']?.toString();
-          final userId = data['user_id']?.toString();
+        // Typing payloads carry `isTyping` while messages do not.
+        if (data.containsKey('isTyping')) {
+          final chatId = data['chatId']?.toString();
+          final userId = data['userId']?.toString();
           if (chatId == _conversationId && userId != null && userId != _selfUserId) {
-            final typing = data['is_typing'] == true;
+            final typing = data['isTyping'] == true;
             state = state.copyWith(isOtherUserTyping: typing);
 
             // Auto-clear stale typing state if no follow-up event arrives.
@@ -121,7 +119,7 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           return;
         }
 
-        if (data['conversation_id'] == _conversationId || data['chat_id'] == _conversationId) {
+        if (data['chatId'] == _conversationId) {
           final newMessage = model.Message.fromMap(data);
           state = state.copyWith(messages: [newMessage, ...state.messages]);
         }
@@ -138,8 +136,8 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.typingStatus,
         queries: [
-          Query.equal('chat_id', _conversationId),
-          Query.equal('user_id', me.$id),
+          Query.equal('chatId', _conversationId),
+          Query.equal('userId', me.$id),
           Query.limit(1),
         ],
       );
@@ -150,10 +148,10 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           collectionId: AppwriteConstants.typingStatus,
           documentId: ID.unique(),
           data: {
-            'chat_id': _conversationId,
-            'user_id': me.$id,
-            'is_typing': isTyping,
-            'updated_at': DateTime.now().toIso8601String(),
+            'chatId': _conversationId,
+            'userId': me.$id,
+            'isTyping': isTyping,
+            'updatedAt': DateTime.now().toIso8601String(),
           },
         );
       } else {
@@ -162,8 +160,8 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           collectionId: AppwriteConstants.typingStatus,
           documentId: existing.documents.first.$id,
           data: {
-            'is_typing': isTyping,
-            'updated_at': DateTime.now().toIso8601String(),
+            'isTyping': isTyping,
+            'updatedAt': DateTime.now().toIso8601String(),
           },
         );
       }
@@ -179,10 +177,7 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.messagesCollection,
         queries: [
-          Query.or([
-            Query.equal('conversation_id', _conversationId),
-            Query.equal('chat_id', _conversationId),
-          ]),
+          Query.equal('chatId', _conversationId),
           Query.orderAsc('\$createdAt'),
           Query.limit(100),
         ],
@@ -207,8 +202,8 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           collectionId: AppwriteConstants.usersCollection,
           documentId: user.$id,
         );
-        senderName = (profile.data['display_name'] ?? profile.data['username'])?.toString();
-        senderAvatar = profile.data['avatar_url']?.toString();
+        senderName = (profile.data['displayName'] ?? profile.data['username'])?.toString();
+        senderAvatar = profile.data['avatar']?.toString();
       } catch (_) {
         // Optional denormalized sender fields.
       }
@@ -218,11 +213,9 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
       final optimistic = model.Message(
         id: tempId,
         chatId: _conversationId,
-        conversationId: _conversationId,
         senderId: user.$id,
         content: content,
         type: 'text',
-        messageType: 'text',
         status: 'sending',
         isRead: false,
         createdAt: DateTime.now(),
@@ -234,16 +227,14 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
         collectionId: AppwriteConstants.messagesCollection,
         documentId: ID.unique(),
         data: {
-          'chat_id': _conversationId,
-          'conversation_id': _conversationId,
-          'sender_id': user.$id,
-          'sender_name': senderName,
-          'sender_avatar': senderAvatar,
+          'chatId': _conversationId,
+          'senderId': user.$id,
+          'senderName': senderName,
+          'senderAvatar': senderAvatar,
           'content': content,
           'type': 'text',
-          'message_type': 'text',
           'status': 'sent',
-          'is_read': false,
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
 
@@ -260,12 +251,11 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           return model.Message(
             id: m.id,
             chatId: m.chatId,
-            conversationId: m.conversationId,
-            roomId: m.roomId,
             senderId: m.senderId,
+            senderName: m.senderName,
+            senderAvatar: m.senderAvatar,
             content: m.content,
             type: m.type,
-            messageType: m.messageType,
             status: 'failed',
             isRead: m.isRead,
             createdAt: m.createdAt,
@@ -303,8 +293,8 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           collectionId: AppwriteConstants.usersCollection,
           documentId: user.$id,
         );
-        senderName = (profile.data['display_name'] ?? profile.data['username'])?.toString();
-        senderAvatar = profile.data['avatar_url']?.toString();
+        senderName = (profile.data['displayName'] ?? profile.data['username'])?.toString();
+        senderAvatar = profile.data['avatar']?.toString();
       } catch (_) {
         // Optional denormalized sender fields.
       }
@@ -314,16 +304,14 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
         collectionId: AppwriteConstants.messagesCollection,
         documentId: ID.unique(),
         data: {
-          'chat_id': _conversationId,
-          'conversation_id': _conversationId,
-          'sender_id': user.$id,
-          'sender_name': senderName,
-          'sender_avatar': senderAvatar,
+          'chatId': _conversationId,
+          'senderId': user.$id,
+          'senderName': senderName,
+          'senderAvatar': senderAvatar,
           'content': content,
           'type': 'text',
-          'message_type': 'text',
           'status': 'sent',
-          'is_read': false,
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
 
@@ -356,12 +344,11 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
     return model.Message(
       id: message.id,
       chatId: message.chatId,
-      conversationId: message.conversationId,
-      roomId: message.roomId,
       senderId: message.senderId,
+      senderName: message.senderName,
+      senderAvatar: message.senderAvatar,
       content: message.content,
       type: message.type,
-      messageType: message.messageType,
       status: status,
       isRead: message.isRead,
       createdAt: message.createdAt,
@@ -374,11 +361,9 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
   }) async {
     final nowIso = DateTime.now().toIso8601String();
     final updateData = {
-      'last_message': content,
-      'last_message_type': 'text',
-      'last_message_sender_id': senderId,
-      'last_message_at': nowIso,
-      'updated_at': nowIso,
+      'lastMessage': content,
+      'lastMessageTime': nowIso,
+      'updatedAt': nowIso,
     };
 
     try {
@@ -388,12 +373,17 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
         documentId: _conversationId,
       );
 
-      final p1 = chatDoc.data['participant_1']?.toString();
-      final p2 = chatDoc.data['participant_2']?.toString();
-      final otherId = p1 == senderId ? p2 : p1;
-      final unread = _decodeUnreadCounts(chatDoc.data['unread_counts']);
+      final rawParts = chatDoc.data['participants'];
+      List<String> parts = [];
+      if (rawParts is List) {
+        parts = rawParts.map((e) => e.toString()).toList();
+      } else if (rawParts is String) {
+        try { final d = jsonDecode(rawParts); if (d is List) parts = d.map((e) => e.toString()).toList(); } catch (_) {}
+      }
+      final otherId = parts.firstWhere((p) => p != senderId, orElse: () => '');
+      final unread = _decodeUnreadCounts(chatDoc.data['unreadCounts']);
       unread[senderId] = unread[senderId] ?? 0;
-      if (otherId != null && otherId.isNotEmpty) {
+      if (otherId.isNotEmpty) {
         unread[otherId] = (unread[otherId] ?? 0) + 1;
       }
 
@@ -403,17 +393,17 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
         documentId: _conversationId,
         data: {
           ...updateData,
-          'unread_counts': _encodeUnreadCounts(unread),
+          'unreadCounts': _encodeUnreadCounts(unread),
         },
       );
     } catch (_) {
       await _appwrite.databases.updateDocument(
         databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.conversationsCollection,
+        collectionId: AppwriteConstants.chats,
         documentId: _conversationId,
         data: {
-          'last_message': content,
-          'last_message_at': nowIso,
+          'lastMessage': content,
+          'lastMessageTime': nowIso,
         },
       );
     }
@@ -442,26 +432,21 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.messagesCollection,
         queries: [
-          Query.or([
-            Query.equal('conversation_id', _conversationId),
-            Query.equal('chat_id', _conversationId),
-          ]),
-          Query.notEqual('sender_id', currentUserId),
+          Query.equal('chatId', _conversationId),
+          Query.notEqual('senderId', currentUserId),
           Query.limit(100),
         ],
       );
 
       for (final doc in response.documents) {
-        final isRead = doc.data['is_read'] == true;
         final status = (doc.data['status'] ?? '').toString().toLowerCase();
-        if (isRead && status == 'read') continue;
+        if (status == 'read') continue;
 
         await _appwrite.databases.updateDocument(
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.messagesCollection,
           documentId: doc.$id,
           data: {
-            'is_read': true,
             'status': 'read',
           },
         );
@@ -473,7 +458,7 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           collectionId: AppwriteConstants.chats,
           documentId: _conversationId,
         );
-        final unread = _decodeUnreadCounts(chatDoc.data['unread_counts']);
+        final unread = _decodeUnreadCounts(chatDoc.data['unreadCounts']);
         unread[currentUserId] = 0;
 
         await _appwrite.databases.updateDocument(
@@ -481,8 +466,8 @@ class ConversationNotifier extends StateNotifier<ConversationState> {
           collectionId: AppwriteConstants.chats,
           documentId: _conversationId,
           data: {
-            'unread_counts': _encodeUnreadCounts(unread),
-            'updated_at': DateTime.now().toIso8601String(),
+            'unreadCounts': _encodeUnreadCounts(unread),
+            'updatedAt': DateTime.now().toIso8601String(),
           },
         );
       } catch (_) {
@@ -563,9 +548,7 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
 
   void _subscribeToConversationUpdates() {
     _realtime.subscribe([
-      'databases.default.collections.${AppwriteConstants.chats}.documents',
       'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.chats}.documents',
-      'databases.default.collections.${AppwriteConstants.messagesCollection}.documents',
       'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.messagesCollection}.documents',
     ]);
 
@@ -591,7 +574,7 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
 
       final rawConversations = response.documents.map((doc) {
         final conv = Conversation.fromMap(doc.data);
-        final unread = _decodeUnreadCounts(doc.data['unread_counts']);
+        final unread = _decodeUnreadCounts(doc.data['unreadCounts']);
         return conv.copyWith(
           unreadCount1: unread[conv.participant1] ?? conv.unreadCount1,
           unreadCount2: unread[conv.participant2] ?? conv.unreadCount2,
@@ -607,11 +590,11 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
       final conversations = rawConversations.map((c) {
         final p1 = userMap[c.participant1];
         final p2 = userMap[c.participant2];
-        return c.copyWith(
-          participant1Name: p1?['display_name']?.toString() ?? p1?['username']?.toString() ?? c.participant1,
-          participant2Name: p2?['display_name']?.toString() ?? p2?['username']?.toString() ?? c.participant2,
-          participant1Avatar: p1?['avatar_url']?.toString(),
-          participant2Avatar: p2?['avatar_url']?.toString(),
+          return c.copyWith(
+            participant1Name: (p1?['displayName'] ?? p1?['username'])?.toString() ?? c.participant1,
+            participant2Name: (p2?['displayName'] ?? p2?['username'])?.toString() ?? c.participant2,
+            participant1Avatar: p1?['avatar']?.toString(),
+            participant2Avatar: p2?['avatar']?.toString(),
         );
       }).toList();
 
@@ -633,12 +616,12 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
           Query.equal('status', 'connected'),
           Query.or([
             Query.and([
-              Query.equal('requester_id', user.$id),
-              Query.equal('receiver_id', otherUserId),
+              Query.equal('requesterId', user.$id),
+              Query.equal('receiverId', otherUserId),
             ]),
             Query.and([
-              Query.equal('requester_id', otherUserId),
-              Query.equal('receiver_id', user.$id),
+              Query.equal('requesterId', otherUserId),
+              Query.equal('receiverId', user.$id),
             ]),
           ]),
           Query.limit(1),
@@ -654,45 +637,32 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
       final existing = await _listUserConversations(user.$id, limit: 100);
 
       for (final doc in existing.documents) {
-        final p1 = doc.data['participant_1'];
-        final p2 = doc.data['participant_2'];
-        if ((p1 == user.$id && p2 == otherUserId) || (p1 == otherUserId && p2 == user.$id)) {
-          // Conversation already exists
+        final rawP = doc.data['participants'];
+        List<String> ps = [];
+        if (rawP is List) {
+          ps = rawP.map((e) => e.toString()).toList();
+        } else if (rawP is String) {
+          try { final d = jsonDecode(rawP); if (d is List) ps = d.map((e) => e.toString()).toList(); } catch (_) {}
+        }
+        if (ps.contains(user.$id) && ps.contains(otherUserId)) {
           return;
         }
       }
 
-      // Create new chat in v3 collection, fallback to legacy collection.
-      try {
-        await _appwrite.databases.createDocument(
-          databaseId: AppwriteConstants.databaseId,
-          collectionId: AppwriteConstants.chats,
-          documentId: ID.unique(),
-          data: {
-            'participant_1': user.$id,
-            'participant_2': otherUserId,
-            'participants': '["${user.$id}","$otherUserId"]',
-            'is_group': false,
-            'last_message': '',
-            'last_message_type': 'text',
-            'last_message_at': DateTime.now().toIso8601String(),
-            'unread_counts': _encodeUnreadCounts({user.$id: 0, otherUserId: 0}),
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-        );
-      } catch (_) {
-        await _appwrite.databases.createDocument(
-          databaseId: AppwriteConstants.databaseId,
-          collectionId: AppwriteConstants.conversationsCollection,
-          documentId: ID.unique(),
-          data: {
-            'participant_1': user.$id,
-            'participant_2': otherUserId,
-            'last_message': '',
-            'last_message_at': DateTime.now().toIso8601String(),
-          },
-        );
-      }
+      await _appwrite.databases.createDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.chats,
+        documentId: ID.unique(),
+        data: {
+          'participants': [user.$id, otherUserId],
+          'isGroup': false,
+          'lastMessage': '',
+          'lastMessageTime': DateTime.now().toIso8601String(),
+          'unreadCounts': _encodeUnreadCounts({user.$id: 0, otherUserId: 0}),
+          'createdAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
+      );
 
       await _loadConversations();
     } catch (e) {
@@ -702,27 +672,16 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
 
   Future<dynamic> _listUserConversations(String userId, {int limit = 50}) async {
     final commonQueries = [
-      Query.or([
-        Query.equal('participant_1', userId),
-        Query.equal('participant_2', userId),
-      ]),
-      Query.orderDesc('last_message_at'),
+      Query.equal('participants', userId),
+      Query.orderDesc('lastMessageTime'),
       Query.limit(limit),
     ];
 
-    try {
-      return await _appwrite.databases.listDocuments(
-        databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.chats,
-        queries: commonQueries,
-      );
-    } catch (_) {
-      return _appwrite.databases.listDocuments(
-        databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.conversationsCollection,
-        queries: commonQueries,
-      );
-    }
+    return _appwrite.databases.listDocuments(
+      databaseId: AppwriteConstants.databaseId,
+      collectionId: AppwriteConstants.chats,
+      queries: commonQueries,
+    );
   }
 
   Future<Map<String, Map<String, dynamic>>> _getUsersMap(Set<String> userIds) async {

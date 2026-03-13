@@ -46,7 +46,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.commentsCollection,
         queries: [
-          Query.equal('debate_id', _debateId),
+          Query.equal('debateId', _debateId),
           Query.orderAsc('\$createdAt'),
           Query.limit(100),
         ],
@@ -75,8 +75,8 @@ class CommentNotifier extends StateNotifier<CommentState> {
           collectionId: AppwriteConstants.usersCollection,
           documentId: user.$id,
         );
-        username = (profile.data['username'] ?? profile.data['display_name'] ?? username).toString();
-        userAvatar = profile.data['avatar_url']?.toString();
+        username = (profile.data['username'] ?? profile.data['displayName'] ?? username).toString();
+        userAvatar = profile.data['avatar']?.toString();
       } catch (_) {
         // Keep fallback identity from account object.
       }
@@ -89,12 +89,12 @@ class CommentNotifier extends StateNotifier<CommentState> {
             collectionId: AppwriteConstants.commentsCollection,
             documentId: parentId,
           );
-          int replyCount = parentComment.data['reply_count'] ?? 0;
+          int replyCount = parentComment.data['replyCount'] ?? 0;
           await _appwrite.databases.updateDocument(
             databaseId: AppwriteConstants.databaseId,
             collectionId: AppwriteConstants.commentsCollection,
             documentId: parentId,
-            data: {'reply_count': replyCount + 1},
+            data: {'replyCount': replyCount + 1},
           );
         } catch (e) {
           // Parent not found
@@ -106,16 +106,19 @@ class CommentNotifier extends StateNotifier<CommentState> {
         collectionId: AppwriteConstants.commentsCollection,
         documentId: ID.unique(),
         data: {
-          'debate_id': _debateId,
-          'user_id': user.$id,
+          'debateId': _debateId,
+          'userId': user.$id,
           'username': username,
-          'user_avatar': userAvatar,
+          'userAvatar': userAvatar,
           'content': text,
           'side': side,
-          'parent_id': parentId,
+          'parentId': parentId,
           'upvotes': 0,
           'downvotes': 0,
-          'reply_count': 0,
+          'replyCount': 0,
+          'isDeleted': false,
+          'isEdited': false,
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
       await fetchComments();
@@ -132,6 +135,8 @@ class CommentNotifier extends StateNotifier<CommentState> {
         documentId: commentId,
         data: {
           'content': newText,
+          'isEdited': true,
+          'updatedAt': DateTime.now().toIso8601String(),
         },
       );
       await fetchComments();
@@ -150,7 +155,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
       );
 
       // If this is a reply, decrement parent's reply count
-      final parentId = comment.data['parent_id'];
+      final parentId = comment.data['parentId'];
       if (parentId != null) {
         try {
           final parentComment = await _appwrite.databases.getDocument(
@@ -158,12 +163,12 @@ class CommentNotifier extends StateNotifier<CommentState> {
             collectionId: AppwriteConstants.commentsCollection,
             documentId: parentId,
           );
-          int replyCount = parentComment.data['reply_count'] ?? 0;
+          int replyCount = parentComment.data['replyCount'] ?? 0;
           await _appwrite.databases.updateDocument(
             databaseId: AppwriteConstants.databaseId,
             collectionId: AppwriteConstants.commentsCollection,
             documentId: parentId,
-            data: {'reply_count': max(0, replyCount - 1)},
+            data: {'replyCount': max(0, replyCount - 1)},
           );
         } catch (e) {
           // Parent not found, continue with deletion

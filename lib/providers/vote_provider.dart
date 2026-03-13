@@ -44,20 +44,25 @@ class VoteNotifier extends StateNotifier<VoteState> {
   }
 
   Future<void> _loadUserVote() async {
+    if (targetType != 'debate') {
+      state = state.copyWith(userVote: null);
+      return;
+    }
+
     try {
       final user = await _appwrite.account.get();
       final response = await _appwrite.databases.listDocuments(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.votesCollection,
         queries: [
-          Query.equal('target_id', targetId),
-          Query.equal('user_id', user.$id),
-          Query.equal('target_type', targetType),
+          Query.equal('debateId', targetId),
+          Query.equal('userId', user.$id),
         ],
       );
 
       if (response.documents.isNotEmpty) {
-        final value = response.documents.first.data['value'] as int;
+        final side = (response.documents.first.data['side'] ?? '').toString();
+        final value = side == 'agree' ? 1 : side == 'disagree' ? -1 : 0;
         state = state.copyWith(userVote: value);
       }
     } catch (e) {
@@ -66,24 +71,33 @@ class VoteNotifier extends StateNotifier<VoteState> {
   }
 
   Future<void> castVote(int value) async {
+    if (targetType != 'debate') {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Only debate votes are supported by the v3 schema.',
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       final user = await _appwrite.account.get();
+      final side = value == 1 ? 'agree' : 'disagree';
 
       // Check if user already voted
       final existingVote = await _appwrite.databases.listDocuments(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.votesCollection,
         queries: [
-          Query.equal('target_id', targetId),
-          Query.equal('user_id', user.$id),
-          Query.equal('target_type', targetType),
+          Query.equal('debateId', targetId),
+          Query.equal('userId', user.$id),
         ],
       );
 
       if (existingVote.documents.isNotEmpty) {
         final voteDoc = existingVote.documents.first;
-        final oldValue = voteDoc.data['value'] as int;
+        final oldSide = (voteDoc.data['side'] ?? '').toString();
+        final oldValue = oldSide == 'agree' ? 1 : -1;
         
         if (oldValue == value) {
           // Toggle off
@@ -100,7 +114,7 @@ class VoteNotifier extends StateNotifier<VoteState> {
             databaseId: AppwriteConstants.databaseId,
             collectionId: AppwriteConstants.votesCollection,
             documentId: voteDoc.$id,
-            data: {'value': value},
+            data: {'side': side},
           );
           await _updateCounts(oldValue, increment: false);
           await _updateCounts(value, increment: true);
@@ -113,10 +127,10 @@ class VoteNotifier extends StateNotifier<VoteState> {
             collectionId: AppwriteConstants.votesCollection,
             documentId: ID.unique(),
             data: {
-              'user_id': user.$id,
-              'target_id': targetId,
-              'target_type': targetType,
-              'value': value,
+              'userId': user.$id,
+              'debateId': targetId,
+              'side': side,
+              'createdAt': DateTime.now().toIso8601String(),
             },
         );
         await _updateCounts(value, increment: true);
@@ -129,9 +143,7 @@ class VoteNotifier extends StateNotifier<VoteState> {
 
   Future<void> _updateCounts(int value, {required bool increment}) async {
     try {
-      final collectionId = targetType == 'debate' 
-          ? AppwriteConstants.debatesCollection 
-          : AppwriteConstants.commentsCollection;
+        final collectionId = AppwriteConstants.debatesCollection;
 
       final doc = await _appwrite.databases.getDocument(
         databaseId: AppwriteConstants.databaseId,
@@ -141,8 +153,8 @@ class VoteNotifier extends StateNotifier<VoteState> {
 
       int upvotes = doc.data['upvotes'] ?? 0;
       int downvotes = doc.data['downvotes'] ?? 0;
-      int agreeCount = doc.data['agree_count'] ?? upvotes;
-      int disagreeCount = doc.data['disagree_count'] ?? downvotes;
+      int agreeCount = doc.data['agreeCount'] ?? upvotes;
+      int disagreeCount = doc.data['disagreeCount'] ?? downvotes;
 
       if (value == 1) {
         upvotes = increment ? upvotes + 1 : upvotes - 1;
@@ -162,8 +174,8 @@ class VoteNotifier extends StateNotifier<VoteState> {
         collectionId: collectionId,
         documentId: targetId,
         data: {
-          'agree_count': agreeCount,
-          'disagree_count': disagreeCount,
+          'agreeCount': agreeCount,
+          'disagreeCount': disagreeCount,
           'upvotes': upvotes,
           'downvotes': downvotes,
         },

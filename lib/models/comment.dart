@@ -4,6 +4,8 @@ class Comment extends Equatable {
   final String id;
   final String debateId;
   final String userId;
+  final String username;
+  final String? userAvatar;
   final String? parentId;
   final String content;
   final String? side;
@@ -16,6 +18,8 @@ class Comment extends Equatable {
     required this.id,
     required this.debateId,
     required this.userId,
+    this.username = '',
+    this.userAvatar,
     this.parentId,
     required this.content,
     this.side,
@@ -28,28 +32,32 @@ class Comment extends Equatable {
   factory Comment.fromMap(Map<String, dynamic> map) {
     return Comment(
       id: map['\$id'] ?? '',
-      debateId: map['debate_id'] ?? '',
-      userId: map['user_id'] ?? '',
-      parentId: map['parent_id'],
+      debateId: map['debateId'] ?? '',
+      userId: map['userId'] ?? '',
+      username: map['username'] ?? '',
+      userAvatar: map['userAvatar'],
+      parentId: map['parentId'],
       content: map['content'] ?? '',
       side: map['side'],
       upvotes: map['upvotes'] ?? 0,
       downvotes: map['downvotes'] ?? 0,
-      replyCount: map['reply_count'] ?? 0,
+      replyCount: map['replyCount'] ?? 0,
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'debate_id': debateId,
-      'user_id': userId,
-      'parent_id': parentId,
+      'debateId': debateId,
+      'userId': userId,
+      'username': username,
+      'userAvatar': userAvatar,
+      'parentId': parentId,
       'content': content,
       'side': side,
       'upvotes': upvotes,
       'downvotes': downvotes,
-      'reply_count': replyCount,
+      'replyCount': replyCount,
     };
   }
 
@@ -57,6 +65,8 @@ class Comment extends Equatable {
     String? id,
     String? debateId,
     String? userId,
+    String? username,
+    String? userAvatar,
     String? parentId,
     String? content,
     String? side,
@@ -69,6 +79,8 @@ class Comment extends Equatable {
       id: id ?? this.id,
       debateId: debateId ?? this.debateId,
       userId: userId ?? this.userId,
+      username: username ?? this.username,
+      userAvatar: userAvatar ?? this.userAvatar,
       parentId: parentId ?? this.parentId,
       content: content ?? this.content,
       side: side ?? this.side,
@@ -81,7 +93,7 @@ class Comment extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, debateId, userId, parentId, content, side,
+        id, debateId, userId, username, userAvatar, parentId, content, side,
         upvotes, downvotes, replyCount, createdAt,
       ];
 }

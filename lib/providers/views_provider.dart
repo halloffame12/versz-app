@@ -24,8 +24,9 @@ class ViewsNotifier {
           collectionId: AppwriteConstants.debateViews,
           documentId: ID.unique(),
           data: {
-            'debate_id': debateId,
-            'viewer_id': user.$id,
+            'debateId': debateId,
+            'viewerId': user.$id,
+            'createdAt': DateTime.now().toIso8601String(),
           },
         );
       } catch (_) {
@@ -39,12 +40,12 @@ class ViewsNotifier {
           collectionId: AppwriteConstants.debatesCollection,
           documentId: debateId,
         );
-        final current = (debate.data['view_count'] ?? 0) as int;
+        final current = (debate.data['viewCount'] ?? 0) as int;
         await _appwrite.databases.updateDocument(
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.debatesCollection,
           documentId: debateId,
-          data: {'view_count': current + 1},
+          data: {'viewCount': current + 1},
         );
       } catch (_) {
         // Some deployments may not include view_count yet.

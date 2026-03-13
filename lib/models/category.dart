@@ -21,7 +21,7 @@ class Category extends Equatable {
       name: map['name'] ?? '',
       emoji: map['emoji'] ?? '',
       color: map['color'] ?? '',
-      debateCount: map['debate_count'] ?? 0,
+      debateCount: map['debateCount'] ?? 0,
     );
   }
 
@@ -30,7 +30,7 @@ class Category extends Equatable {
       'name': name,
       'emoji': emoji,
       'color': color,
-      'debate_count': debateCount,
+      'debateCount': debateCount,
     };
   }
 

@@ -34,15 +34,15 @@ class UserAccount extends Equatable {
     return UserAccount(
       id: map['\$id'] ?? '',
       username: map['username'] ?? '',
-      displayName: map['display_name'] ?? '',
-      avatarUrl: map['avatar_url'],
-      bannerUrl: map['banner_url'],
+      displayName: map['displayName'] ?? '',
+      avatarUrl: map['avatar'],
+      bannerUrl: map['coverImage'],
       bio: map['bio'],
       reputation: score,
-      followersCount: map['followers_count'] ?? 0,
-      followingCount: map['following_count'] ?? 0,
-      isVerified: map['is_verified'] ?? false,
-      fcmToken: map['fcm_token'],
+      followersCount: map['followersCount'] ?? 0,
+      followingCount: map['followingCount'] ?? 0,
+      isVerified: map['isVerified'] ?? false,
+      fcmToken: map['fcmToken'],
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -50,16 +50,14 @@ class UserAccount extends Equatable {
   Map<String, dynamic> toMap() {
     return {
       'username': username,
-      'display_name': displayName,
-      'avatar_url': avatarUrl,
-      'banner_url': bannerUrl,
+      'displayName': displayName,
+      'avatar': avatarUrl,
+      'coverImage': bannerUrl,
       'bio': bio,
       'xp': reputation,
-      'reputation': reputation,
-      'followers_count': followersCount,
-      'following_count': followingCount,
-      'is_verified': isVerified,
-      'fcm_token': fcmToken,
+      'followersCount': followersCount,
+      'followingCount': followingCount,
+      'fcmToken': fcmToken,
     };
   }
 

@@ -36,22 +36,22 @@ class Debate extends Equatable {
   });
 
   factory Debate.fromMap(Map<String, dynamic> map) {
-    final agree = (map['agree_count'] ?? map['upvotes'] ?? 0) as int;
-    final disagree = (map['disagree_count'] ?? map['downvotes'] ?? 0) as int;
+    final agree = (map['agreeCount'] ?? map['upvotes'] ?? 0) as int;
+    final disagree = (map['disagreeCount'] ?? map['downvotes'] ?? 0) as int;
     return Debate(
       id: map['\$id'] ?? '',
-      title: map['title'] ?? '',
+      title: map['topic'] ?? '',
       description: map['description'],
-      categoryId: map['category_id'] ?? '',
-      creatorId: map['creator_id'] ?? '',
-      mediaType: map['media_type'] ?? 'text',
-      mediaUrl: map['media_url'],
+      categoryId: map['category'] ?? '',
+      creatorId: map['creatorId'] ?? '',
+      mediaType: map['mediaType'] ?? 'text',
+      mediaUrl: map['imageUrl'],
       upvotes: agree,
       downvotes: disagree,
-      commentCount: map['comment_count'] ?? 0,
-      viewCount: map['view_count'] ?? 0,
-      aiSummary: map['ai_summary'],
-      winningSide: map['winning_side'],
+      commentCount: map['commentCount'] ?? 0,
+      viewCount: map['viewCount'] ?? 0,
+      aiSummary: map['aiSummary'],
+      winningSide: map['winningSide'],
       status: map['status'] ?? 'active',
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
@@ -59,20 +59,17 @@ class Debate extends Equatable {
 
   Map<String, dynamic> toMap() {
     return {
-      'title': title,
+      'topic': title,
       'description': description,
-      'category_id': categoryId,
-      'creator_id': creatorId,
-      'media_type': mediaType,
-      'media_url': mediaUrl,
-      'agree_count': upvotes,
-      'disagree_count': downvotes,
-      'upvotes': upvotes,
-      'downvotes': downvotes,
-      'comment_count': commentCount,
-      'view_count': viewCount,
-      'ai_summary': aiSummary,
-      'winning_side': winningSide,
+      'category': categoryId,
+      'creatorId': creatorId,
+      'imageUrl': mediaUrl,
+      'agreeCount': upvotes,
+      'disagreeCount': downvotes,
+      'commentCount': commentCount,
+      'viewCount': viewCount,
+      'aiSummary': aiSummary,
+      'winningSide': winningSide,
       'status': status,
     };
   }

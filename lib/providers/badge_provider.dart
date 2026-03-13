@@ -43,7 +43,7 @@ class BadgeModel {
       description: map['description'] ?? '',
       icon: map['icon'] ?? '🏅',
       category: map['category'] ?? 'achievement',
-      unlockedCount: map['unlocked_count'] ?? 0,
+      unlockedCount: map['unlockedCount'] ?? 0,
     );
   }
 }
@@ -101,7 +101,7 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.badgesCollection,
         queries: [
-          Query.equal('user_id', user.$id),
+          Query.equal('userId', user.$id),
           Query.orderDesc('\$createdAt'),
         ],
       );
@@ -109,7 +109,7 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
       final badges = <UserBadge>[];
       for (final doc in userBadgesResponse.documents) {
         try {
-              final badgeId = doc.data['badge_id'] as String;
+              final badgeId = doc.data['badgeType'] as String;
           // Find the badge model from static list for caching/display purposes
           final allBadges = [
             BadgeModel(id: 'firstDebate', name: 'First Debate', description: 'Created your first debate', icon: '🌱', category: 'milestone'),
@@ -142,7 +142,7 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.debatesCollection,
         queries: [
-          Query.equal('user_id', userId),
+          Query.equal('creatorId', userId),
         ],
       );
 
@@ -150,7 +150,7 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.commentsCollection,
         queries: [
-          Query.equal('user_id', userId),
+          Query.equal('userId', userId),
         ],
       );
 
@@ -158,7 +158,7 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.votesCollection,
         queries: [
-          Query.equal('user_id', userId),
+          Query.equal('userId', userId),
         ],
       );
 
@@ -188,29 +188,15 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
 
   Future<void> _unlockBadgeByName(String userId, String badgeName) async {
     try {
-      // Find badge by name
-      final badgesResponse = await _appwrite.databases.listDocuments(
-        databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.badgesCollection,
-        queries: [
-          Query.search('name', badgeName),
-        ],
-      );
-
-      if (badgesResponse.documents.isEmpty) {
-        return;
-      }
-
-      final badge = badgesResponse.documents.first;
-      final badgeId = badge.$id;
+      final badgeId = badgeName;
 
       // Check if already unlocked
       final existing = await _appwrite.databases.listDocuments(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.badgesCollection,
         queries: [
-          Query.equal('user_id', userId),
-          Query.equal('badge_id', badgeId),
+          Query.equal('userId', userId),
+          Query.equal('badgeType', badgeId),
         ],
       );
 
@@ -224,9 +210,10 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
         collectionId: AppwriteConstants.badgesCollection,
         documentId: ID.unique(),
         data: {
-          'user_id': userId,
-          'badge_id': badgeId,
-          'earned_at': DateTime.now().toIso8601String(),
+          'userId': userId,
+          'badgeType': badgeId,
+          'awardedAt': DateTime.now().toIso8601String(),
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
     } catch (e) {
@@ -241,8 +228,8 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.badgesCollection,
         queries: [
-          Query.equal('user_id', userId),
-          Query.equal('badge_id', badgeId),
+          Query.equal('userId', userId),
+          Query.equal('badgeType', badgeId),
         ],
       );
 
@@ -255,9 +242,10 @@ class UserBadgesNotifier extends StateNotifier<UserBadgesState> {
         collectionId: AppwriteConstants.badgesCollection,
         documentId: ID.unique(),
         data: {
-          'user_id': userId,
-          'badge_id': badgeId,
-          'earned_at': DateTime.now().toIso8601String(),
+          'userId': userId,
+          'badgeType': badgeId,
+          'awardedAt': DateTime.now().toIso8601String(),
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
 

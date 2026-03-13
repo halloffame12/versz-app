@@ -1,35 +1,38 @@
 import 'package:equatable/equatable.dart';
 
+/// v3 badges schema: badgeId, userId, badgeType, awardedAt
 class UserBadge extends Equatable {
   final String id;
   final String userId;
-  final String badgeId;
-  final String earnedAt;
+  final String badgeType;
+  final String awardedAt;
 
   const UserBadge({
     required this.id,
     required this.userId,
-    required this.badgeId,
-    required this.earnedAt,
+    required this.badgeType,
+    required this.awardedAt,
   });
 
   factory UserBadge.fromMap(Map<String, dynamic> map) {
     return UserBadge(
       id: map['\$id'] ?? '',
-      userId: map['user_id'] ?? '',
-      badgeId: map['badge_id'] ?? '',
-      earnedAt: map['earned_at'] ?? '',
+      userId: map['userId'] ?? '',
+      badgeType: map['badgeType'] ?? '',
+      awardedAt: map['awardedAt'] ?? '',
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'user_id': userId,
-      'badge_id': badgeId,
-      'earned_at': earnedAt,
+      'userId': userId,
+      'badgeType': badgeType,
+      'awardedAt': awardedAt,
     };
   }
 
+  String get badgeId => badgeType;
+
   @override
-  List<Object?> get props => [id, userId, badgeId, earnedAt];
+  List<Object?> get props => [id, userId, badgeType, awardedAt];
 }

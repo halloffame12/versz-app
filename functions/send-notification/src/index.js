@@ -1,6 +1,19 @@
 const sdk = require('node-appwrite');
 const admin = require('firebase-admin');
 
+function getFirebaseCredential() {
+    const raw = process.env.FIREBASE_SERVICE_JSON;
+    if (!raw) {
+        throw new Error('Missing FIREBASE_SERVICE_JSON');
+    }
+
+    const parsed = JSON.parse(raw);
+    if (parsed.private_key) {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+    }
+    return admin.credential.cert(parsed);
+}
+
 module.exports = async ({ req, res, log }) => {
     const client = new sdk.Client()
         .setEndpoint(process.env.APPWRITE_ENDPOINT)
@@ -8,7 +21,7 @@ module.exports = async ({ req, res, log }) => {
         .setKey(process.env.APPWRITE_API_KEY);
 
     const db = new sdk.Databases(client);
-    const body = JSON.parse(req.body || '{}');
+    const requestBody = JSON.parse(req.body || '{}');
     const {
         userId,
         title,
@@ -20,46 +33,34 @@ module.exports = async ({ req, res, log }) => {
         chatId,
         conversationId,
         payload,
-    } = body;
+    } = requestBody;
 
     if (!userId || !title || !msgBody) {
         return res.json({ error: 'Missing required fields: userId, title, body' }, 400);
     }
 
     try {
-        // Get user's FCM token
-        const profile = await db.getDocument(
-            process.env.DATABASE_ID,
-            'users',
-            userId
-        );
-        const token = profile.fcm_token;
+        const profile = await db.getDocument(process.env.DATABASE_ID, 'users', userId);
+        const token = profile.fcmToken;
 
         if (!token) {
-            log('No FCM token for user: ' + userId);
+            log(`No FCM token for user: ${userId}`);
             return res.json({ error: 'No FCM token found' }, 404);
         }
 
-        // Initialize Firebase Admin if not already
         if (!admin.apps.length) {
             admin.initializeApp({
-                credential: admin.credential.cert({
-                    projectId: process.env.FIREBASE_PROJECT_ID,
-                    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-                }),
+                credential: getFirebaseCredential(),
             });
         }
 
-        // Determine notification channel
         const channelId =
             type === 'new_message'
                 ? 'versz_messages'
                 : type === 'mention'
-                    ? 'versz_mentions'
-                    : 'versz_general';
+                  ? 'versz_mentions'
+                  : 'versz_general';
 
-        // Send FCM notification
         await admin.messaging().send({
             token,
             notification: { title, body: msgBody },
@@ -68,8 +69,7 @@ module.exports = async ({ req, res, log }) => {
                 debateId: debateId ?? '',
                 commentId: commentId ?? '',
                 senderId: senderId ?? '',
-                chatId: chatId ?? '',
-                conversationId: conversationId ?? '',
+                chatId: chatId ?? conversationId ?? '',
                 click_action: 'FLUTTER_NOTIFICATION_CLICK',
             },
             android: {
@@ -78,28 +78,21 @@ module.exports = async ({ req, res, log }) => {
             },
         });
 
-        // Create notification document
-        await db.createDocument(
-            process.env.DATABASE_ID,
-            'notifications',
-            sdk.ID.unique(),
-            {
-                user_id: userId,
-                type: type ?? 'general',
-                sender_id: senderId ?? null,
-                target_id: debateId ?? commentId ?? chatId ?? conversationId ?? null,
-                content: msgBody,
-                title,
-                body: msgBody,
-                payload: payload ? JSON.stringify(payload) : null,
-                is_read: false,
-            }
-        );
+        await db.createDocument(process.env.DATABASE_ID, 'notifications', sdk.ID.unique(), {
+            userId,
+            senderId: senderId ?? null,
+            type: type ?? 'general',
+            title,
+            body: msgBody,
+            payload: payload ? JSON.stringify(payload) : null,
+            read: false,
+            createdAt: new Date().toISOString(),
+        });
 
-        log('Notification sent to user: ' + userId);
+        log(`Notification sent to user: ${userId}`);
         return res.json({ success: true });
     } catch (error) {
-        log('Error sending notification: ' + error.message);
+        log(`Error sending notification: ${error.message}`);
         return res.json({ error: error.message }, 500);
     }
 };

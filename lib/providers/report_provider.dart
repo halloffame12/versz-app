@@ -64,9 +64,9 @@ class ReportNotifier extends StateNotifier<ReportState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.reportsCollection,
         queries: [
-          Query.equal('reporter_id', user.$id),
-          Query.equal('target_id', targetId),
-          Query.equal('target_type', targetType),
+          Query.equal('reporterId', user.$id),
+          Query.equal('targetId', targetId),
+          Query.equal('targetType', targetType),
         ],
       );
 
@@ -83,11 +83,13 @@ class ReportNotifier extends StateNotifier<ReportState> {
         collectionId: AppwriteConstants.reportsCollection,
         documentId: ID.unique(),
         data: {
-          'reporter_id': user.$id,
-          'target_id': targetId,
-          'target_type': targetType,
+          'reporterId': user.$id,
+          'targetId': targetId,
+          'targetType': targetType,
           'reason': reportType.toString().split('.').last,
           'status': 'pending',
+          'description': description,
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
 
@@ -106,7 +108,7 @@ class ReportNotifier extends StateNotifier<ReportState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.reportsCollection,
         queries: [
-          Query.equal('reporter_id', user.$id),
+          Query.equal('reporterId', user.$id),
           Query.orderDesc('\$createdAt'),
           Query.limit(100),
         ],

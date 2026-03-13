@@ -49,13 +49,13 @@ class SavedDebatesNotifier extends StateNotifier<SavedDebatesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: saveCollection,
         queries: [
-          Query.equal('user_id', user.$id),
+          Query.equal('userId', user.$id),
           Query.orderDesc('\$createdAt'),
           Query.limit(100),
         ],
       );
 
-      final debateIds = response.documents.map((doc) => doc.data['debate_id'] as String).toList();
+      final debateIds = response.documents.map((doc) => doc.data['debateId'] as String).toList();
 
       // Fetch debate details
       final debates = <Debate>[];
@@ -88,8 +88,8 @@ class SavedDebatesNotifier extends StateNotifier<SavedDebatesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: saveCollection,
         queries: [
-          Query.equal('user_id', user.$id),
-          Query.equal('debate_id', debateId),
+          Query.equal('userId', user.$id),
+          Query.equal('debateId', debateId),
         ],
       );
 
@@ -103,8 +103,9 @@ class SavedDebatesNotifier extends StateNotifier<SavedDebatesState> {
         collectionId: saveCollection,
         documentId: ID.unique(),
         data: {
-          'user_id': user.$id,
-          'debate_id': debateId,
+          'userId': user.$id,
+          'debateId': debateId,
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
 
@@ -123,8 +124,8 @@ class SavedDebatesNotifier extends StateNotifier<SavedDebatesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: saveCollection,
         queries: [
-          Query.equal('user_id', user.$id),
-          Query.equal('debate_id', debateId),
+          Query.equal('userId', user.$id),
+          Query.equal('debateId', debateId),
         ],
       );
 
@@ -151,8 +152,8 @@ class SavedDebatesNotifier extends StateNotifier<SavedDebatesState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: saveCollection,
         queries: [
-          Query.equal('user_id', user.$id),
-          Query.equal('debate_id', debateId),
+          Query.equal('userId', user.$id),
+          Query.equal('debateId', debateId),
         ],
       );
 

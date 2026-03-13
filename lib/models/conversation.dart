@@ -1,7 +1,13 @@
+import 'dart:convert';
 import 'package:equatable/equatable.dart';
 
+/// Maps to v3 chats collection.
+/// Schema: chatId, participants (array), isGroup, groupName, groupAvatar,
+///   adminIds, lastMessage, lastMessageType, lastMessageSenderId,
+///   lastMessageTime, unreadCounts, createdAt, updatedAt
 class Conversation extends Equatable {
   final String id;
+  // Extracted from the participants array for easy access.
   final String participant1;
   final String participant2;
   final String? participant1Name;
@@ -28,33 +34,37 @@ class Conversation extends Equatable {
   });
 
   factory Conversation.fromMap(Map<String, dynamic> map) {
+    // Parse participants: v3 uses an array of user IDs.
+    String p1 = '', p2 = '';
+    final rawParticipants = map['participants'];
+    if (rawParticipants is List && rawParticipants.length >= 2) {
+      p1 = rawParticipants[0].toString();
+      p2 = rawParticipants[1].toString();
+    } else if (rawParticipants is String && rawParticipants.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawParticipants) as List;
+        p1 = decoded.isNotEmpty ? decoded[0].toString() : '';
+        p2 = decoded.length > 1 ? decoded[1].toString() : '';
+      } catch (_) {}
+    }
     return Conversation(
       id: map['\$id'] ?? '',
-      participant1: map['participant_1'] ?? '',
-      participant2: map['participant_2'] ?? '',
-      participant1Name: map['participant_1_name'],
-      participant2Name: map['participant_2_name'],
-      participant1Avatar: map['participant_1_avatar'],
-      participant2Avatar: map['participant_2_avatar'],
-      unreadCount1: map['unread_count_1'] ?? 0,
-      unreadCount2: map['unread_count_2'] ?? 0,
-      lastMessage: map['last_message'],
-      lastMessageAt: map['last_message_at'],
+      participant1: p1,
+      participant2: p2,
+      unreadCount1: 0,
+      unreadCount2: 0,
+      lastMessage: map['lastMessage'],
+      lastMessageAt: map['lastMessageTime']?.toString(),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'participant_1': participant1,
-      'participant_2': participant2,
-      'participant_1_name': participant1Name,
-      'participant_2_name': participant2Name,
-      'participant_1_avatar': participant1Avatar,
-      'participant_2_avatar': participant2Avatar,
-      'unread_count_1': unreadCount1,
-      'unread_count_2': unreadCount2,
-      'last_message': lastMessage,
-      'last_message_at': lastMessageAt,
+      'participants': [participant1, participant2],
+      'isGroup': false,
+      'lastMessage': lastMessage ?? '',
+      'lastMessageTime': lastMessageAt ?? DateTime.now().toIso8601String(),
+      'unreadCounts': jsonEncode({participant1: unreadCount1, participant2: unreadCount2}),
     };
   }
 
@@ -99,5 +109,5 @@ class Conversation extends Equatable {
       unreadCount2,
       lastMessage,
       lastMessageAt,
-      ];
+    ];
 }

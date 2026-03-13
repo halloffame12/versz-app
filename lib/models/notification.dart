@@ -3,20 +3,22 @@ import 'package:equatable/equatable.dart';
 class VerszNotification extends Equatable {
   final String id;
   final String userId;
-  final String type; // 'vote', 'comment', 'reply', 'follow', 'badge', 'system'
   final String? senderId;
-  final String? targetId;
-  final String content;
+  final String type;
+  final String title;
+  final String body;
+  final String? payload;
   final bool isRead;
   final DateTime createdAt;
 
   const VerszNotification({
     required this.id,
     required this.userId,
-    required this.type,
     this.senderId,
-    this.targetId,
-    required this.content,
+    required this.type,
+    this.title = '',
+    this.body = '',
+    this.payload,
     this.isRead = false,
     required this.createdAt,
   });
@@ -24,51 +26,57 @@ class VerszNotification extends Equatable {
   factory VerszNotification.fromMap(Map<String, dynamic> map) {
     return VerszNotification(
       id: map['\$id'] ?? '',
-      userId: map['user_id'] ?? '',
+      userId: map['userId'] ?? '',
+      senderId: map['senderId']?.toString(),
       type: map['type'] ?? '',
-      senderId: map['sender_id'],
-      targetId: map['target_id'],
-      content: map['content'] ?? '',
-      isRead: map['is_read'] ?? false,
+      title: map['title'] ?? '',
+      body: map['body'] ?? '',
+      payload: map['payload']?.toString(),
+      isRead: map['read'] ?? false,
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'user_id': userId,
+      'userId': userId,
+      'senderId': senderId,
       'type': type,
-      'sender_id': senderId,
-      'target_id': targetId,
-      'content': content,
-      'is_read': isRead,
+      'title': title,
+      'body': body,
+      'payload': payload,
+      'read': isRead,
     };
   }
 
   VerszNotification copyWith({
     String? id,
     String? userId,
-    String? type,
     String? senderId,
-    String? targetId,
-    String? content,
+    String? type,
+    String? title,
+    String? body,
+    String? payload,
     bool? isRead,
     DateTime? createdAt,
   }) {
     return VerszNotification(
       id: id ?? this.id,
       userId: userId ?? this.userId,
-      type: type ?? this.type,
       senderId: senderId ?? this.senderId,
-      targetId: targetId ?? this.targetId,
-      content: content ?? this.content,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      payload: payload ?? this.payload,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
     );
   }
 
+  String get content => body;
+
   @override
   List<Object?> get props => [
-        id, userId, type, senderId, targetId, content, isRead, createdAt,
-      ];
+    id, userId, senderId, type, title, body, payload, isRead, createdAt,
+  ];
 }

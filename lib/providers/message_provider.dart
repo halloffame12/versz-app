@@ -60,7 +60,7 @@ class MessageNotifier extends StateNotifier<MessageState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.messagesCollection,
         queries: [
-          Query.equal('room_id', _roomId),
+          Query.equal('chatId', _roomId),
           Query.orderDesc('\$createdAt'),
           Query.limit(50),
         ],
@@ -83,8 +83,8 @@ class MessageNotifier extends StateNotifier<MessageState> {
           collectionId: AppwriteConstants.usersCollection,
           documentId: user.$id,
         );
-        senderName = (profile.data['display_name'] ?? profile.data['username'])?.toString();
-        senderAvatar = profile.data['avatar_url']?.toString();
+        senderName = (profile.data['displayName'] ?? profile.data['username'])?.toString();
+        senderAvatar = profile.data['avatar']?.toString();
       } catch (_) {
         // Optional denormalized sender fields.
       }
@@ -94,15 +94,14 @@ class MessageNotifier extends StateNotifier<MessageState> {
         collectionId: AppwriteConstants.messagesCollection,
         documentId: ID.unique(),
         data: {
-          'room_id': _roomId,
-          'sender_id': user.$id,
-          'sender_name': senderName,
-          'sender_avatar': senderAvatar,
+          'chatId': _roomId,
+          'senderId': user.$id,
+          'senderName': senderName,
+          'senderAvatar': senderAvatar,
           'content': content,
           'type': 'text',
-          'message_type': 'text',
           'status': 'sent',
-          'is_read': false,
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
     } catch (e) {

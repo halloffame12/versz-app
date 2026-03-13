@@ -8,54 +8,41 @@ module.exports = async ({ req, res, log }) => {
 
     const db = new sdk.Databases(client);
     const body = JSON.parse(req.body || '{}');
-    const { debate_id } = body;
+    const { debate_id: debateId } = body;
 
-    if (!debate_id) {
+    if (!debateId) {
         return res.json({ error: 'Missing debate_id' }, 400);
     }
 
     try {
-        // Fetch debate document
-        const debate = await db.getDocument(
-            process.env.DATABASE_ID,
-            'debates',
-            debate_id
-        );
+        const debate = await db.getDocument(process.env.DATABASE_ID, 'debates', debateId);
 
-        // Fetch top 20 comments by upvotes desc, filter out deleted
-        const commentsRes = await db.listDocuments(
-            process.env.DATABASE_ID,
-            'comments',
-            [
-                sdk.Query.equal('debate_id', [debate_id]),
-                sdk.Query.equal('is_deleted', [false]),
-                sdk.Query.orderDesc('upvotes'),
-                sdk.Query.limit(20),
-                sdk.Query.select(['content', 'side', 'upvotes', 'username']),
-            ]
-        );
+        const commentsRes = await db.listDocuments(process.env.DATABASE_ID, 'comments', [
+            sdk.Query.equal('debateId', [debateId]),
+            sdk.Query.equal('isDeleted', [false]),
+            sdk.Query.orderDesc('upvotes'),
+            sdk.Query.limit(20),
+            sdk.Query.select(['content', 'side', 'upvotes', 'username']),
+        ]);
 
         const commentsList = commentsRes.documents
             .map(
-                (c, i) =>
-                    `${i + 1}. @${c.username || 'user'} (${c.side || 'neutral'}, ${c.upvotes || 0} upvotes): "${c.content || ''}"`
+                (comment, index) =>
+                    `${index + 1}. @${comment.username || 'user'} (${comment.side || 'neutral'}, ${comment.upvotes || 0} upvotes): "${comment.content || ''}"`
             )
             .join('\n');
 
-        // Build prompt
         const prompt = `You are a debate summarizer. Summarize in exactly 2 sentences. Be completely neutral. Give a verdict on which side has stronger arguments based on votes and comment quality.
 
-Topic: ${debate.title}
+Topic: ${debate.topic}
 ${debate.context ? `Context: ${debate.context}` : ''}
-Votes: ${debate.agree_count} Agree vs ${debate.disagree_count} Disagree
+Votes: ${debate.agreeCount} Agree vs ${debate.disagreeCount} Disagree
 Top comments:
 ${commentsList || 'No comments yet.'}
 
 Respond in exactly 2 sentences.`;
 
-        // Call Gemini 1.5 Flash
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
         const geminiRes = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -69,21 +56,16 @@ Respond in exactly 2 sentences.`;
         });
 
         const geminiData = await geminiRes.json();
-        const summary =
-            geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to generate summary.';
+        const summary = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to generate summary.';
 
-        // Update debate document with AI summary
-        await db.updateDocument(
-            process.env.DATABASE_ID,
-            'debates',
-            debate_id,
-            { ai_summary: summary.trim() }
-        );
+        await db.updateDocument(process.env.DATABASE_ID, 'debates', debateId, {
+            aiSummary: summary.trim(),
+        });
 
-        log('Summary generated for debate: ' + debate_id);
+        log(`Summary generated for debate: ${debateId}`);
         return res.json({ summary: summary.trim() });
     } catch (error) {
-        log('Error generating summary: ' + error.message);
+        log(`Error generating summary: ${error.message}`);
         return res.json({ error: error.message }, 500);
     }
 };

@@ -95,12 +95,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         documentId: userId,
         data: {
           'username': name.toLowerCase().replaceAll(' ', '_'),
-          'display_name': name,
+          'displayName': name,
+          'email': email,
           'xp': 0,
-          'reputation': 0,
-          'followers_count': 0,
-          'following_count': 0,
-          'is_verified': false,
+          'followersCount': 0,
+          'followingCount': 0,
+          'connectionsCount': 0,
+          'isPrivate': false,
+          'createdAt': DateTime.now().toIso8601String(),
         },
       );
       
@@ -152,12 +154,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
           documentId: user.$id,
           data: {
             'username': (user.name.isEmpty ? user.email : user.name).toLowerCase().replaceAll(' ', '_'),
-            'display_name': user.name.isEmpty ? user.email : user.name,
+            'displayName': user.name.isEmpty ? user.email : user.name,
+            'email': user.email,
             'xp': 0,
-            'reputation': 0,
-            'followers_count': 0,
-            'following_count': 0,
-            'is_verified': false,
+            'followersCount': 0,
+            'followingCount': 0,
+            'connectionsCount': 0,
+            'isPrivate': false,
+            'createdAt': DateTime.now().toIso8601String(),
           },
         );
         

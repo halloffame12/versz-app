@@ -19,21 +19,15 @@ class SocialNotifier {
           collectionId: AppwriteConstants.connections,
           documentId: ID.unique(),
           data: {
-            'requester_id': user.$id,
-            'receiver_id': targetUserId,
+            'requesterId': user.$id,
+            'receiverId': targetUserId,
             'status': 'follow',
+            'createdAt': DateTime.now().toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
           },
         );
       } catch (_) {
-        await _appwrite.databases.createDocument(
-          databaseId: AppwriteConstants.databaseId,
-          collectionId: AppwriteConstants.followsCollection,
-          documentId: ID.unique(),
-          data: {
-            'follower_id': user.$id,
-            'following_id': targetUserId,
-          },
-        );
+        rethrow;
       }
     } catch (e) {
       // Handle error
@@ -48,8 +42,8 @@ class SocialNotifier {
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.connections,
           queries: [
-            Query.equal('requester_id', user.$id),
-            Query.equal('receiver_id', targetUserId),
+            Query.equal('requesterId', user.$id),
+            Query.equal('receiverId', targetUserId),
             Query.limit(50),
           ],
         );
@@ -62,22 +56,7 @@ class SocialNotifier {
           );
         }
       } catch (_) {
-        final response = await _appwrite.databases.listDocuments(
-          databaseId: AppwriteConstants.databaseId,
-          collectionId: AppwriteConstants.followsCollection,
-          queries: [
-            Query.equal('follower_id', user.$id),
-            Query.equal('following_id', targetUserId),
-          ],
-        );
-
-        for (final doc in response.documents) {
-          await _appwrite.databases.deleteDocument(
-            databaseId: AppwriteConstants.databaseId,
-            collectionId: AppwriteConstants.followsCollection,
-            documentId: doc.$id,
-          );
-        }
+        rethrow;
       }
     } catch (e) {
       // Handle error
@@ -92,24 +71,15 @@ class SocialNotifier {
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.connections,
           queries: [
-            Query.equal('requester_id', user.$id),
-            Query.equal('receiver_id', targetUserId),
+            Query.equal('requesterId', user.$id),
+            Query.equal('receiverId', targetUserId),
             Query.equal('status', ['follow', 'connected']),
             Query.limit(1),
           ],
         );
         return response.documents.isNotEmpty;
       } catch (_) {
-        final response = await _appwrite.databases.listDocuments(
-          databaseId: AppwriteConstants.databaseId,
-          collectionId: AppwriteConstants.followsCollection,
-          queries: [
-            Query.equal('follower_id', user.$id),
-            Query.equal('following_id', targetUserId),
-            Query.limit(1),
-          ],
-        );
-        return response.documents.isNotEmpty;
+        return false;
       }
     } catch (e) {
       return false;

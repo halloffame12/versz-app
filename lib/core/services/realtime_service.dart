@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:appwrite/appwrite.dart';
+import '../constants/appwrite_constants.dart';
 
 class RealtimeService {
   final Client client;
@@ -25,7 +26,9 @@ class RealtimeService {
   }
 
   void subscribeToCollection(String collectionId, Function(Map<String, dynamic>) onMessage) {
-    final channel = 'databases.default.collections.$collectionId.documents';
+    // Use the actual database ID — 'default' is not a valid Appwrite channel alias.
+    final channel =
+        'databases.${AppwriteConstants.databaseId}.collections.$collectionId.documents';
     _subscription?.close();
     _subscription = _realtime.subscribe([channel]);
     

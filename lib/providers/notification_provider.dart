@@ -52,7 +52,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.notificationsCollection,
         queries: [
-          Query.equal('user_id', user.$id),
+          Query.equal('userId', user.$id),
           Query.orderDesc('\$createdAt'),
           Query.limit(50),
         ],
@@ -82,7 +82,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.notificationsCollection,
         documentId: notificationId,
-        data: {'is_read': true},
+        data: {'read': true},
       );
 
       // Update local state
@@ -109,7 +109,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.notificationsCollection,
           documentId: notification.id,
-          data: {'is_read': true},
+          data: {'read': true},
         );
       }
 

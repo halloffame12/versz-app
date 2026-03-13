@@ -1,12 +1,15 @@
 import 'package:equatable/equatable.dart';
 
+/// Maps to v3 communities collection.
+/// Schema: communityId, name, description, banner, avatar, creatorId,
+///   category, memberCount, debateCount, isPrivate, createdAt, updatedAt
 class Room extends Equatable {
   final String id;
   final String name;
   final String? description;
   final String creatorId;
-  final String? iconUrl;
-  final String? bannerUrl;
+  final String? iconUrl;   // maps to 'avatar'
+  final String? bannerUrl; // maps to 'banner'
   final int membersCount;
   final DateTime createdAt;
 
@@ -26,10 +29,10 @@ class Room extends Equatable {
       id: map['\$id'] ?? '',
       name: map['name'] ?? '',
       description: map['description'],
-      creatorId: map['creator_id'] ?? '',
-      iconUrl: map['icon_url'],
-      bannerUrl: map['banner_url'],
-      membersCount: map['members_count'] ?? 0,
+      creatorId: map['creatorId'] ?? '',
+      iconUrl: map['avatar'],
+      bannerUrl: map['banner'],
+      membersCount: map['memberCount'] ?? 0,
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -38,10 +41,10 @@ class Room extends Equatable {
     return {
       'name': name,
       'description': description,
-      'creator_id': creatorId,
-      'icon_url': iconUrl,
-      'banner_url': bannerUrl,
-      'members_count': membersCount,
+      'creatorId': creatorId,
+      'avatar': iconUrl,
+      'banner': bannerUrl,
+      'memberCount': membersCount,
     };
   }
 
@@ -53,11 +56,13 @@ class Room extends Equatable {
   int? get memberCount => membersCount > 0 ? membersCount : null;
 }
 
+/// Maps to v3 community_members collection.
+/// Schema: memberId, communityId, userId, role, status, joinedAt
 class RoomMember extends Equatable {
   final String id;
-  final String roomId;
+  final String roomId;   // maps to 'communityId'
   final String userId;
-  final String role; // 'admin', 'moderator', 'member'
+  final String role;
   final DateTime createdAt;
 
   const RoomMember({
@@ -71,8 +76,8 @@ class RoomMember extends Equatable {
   factory RoomMember.fromMap(Map<String, dynamic> map) {
     return RoomMember(
       id: map['\$id'] ?? '',
-      roomId: map['room_id'] ?? '',
-      userId: map['user_id'] ?? '',
+      roomId: map['communityId'] ?? '',
+      userId: map['userId'] ?? '',
       role: map['role'] ?? 'member',
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
@@ -80,8 +85,8 @@ class RoomMember extends Equatable {
 
   Map<String, dynamic> toMap() {
     return {
-      'room_id': roomId,
-      'user_id': userId,
+      'communityId': roomId,
+      'userId': userId,
       'role': role,
     };
   }
