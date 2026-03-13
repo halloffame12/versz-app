@@ -1,0 +1,9 @@
+{
+    "name": "gemini-summary",
+    "version": "1.0.0",
+    "description": "Generate AI summary for debates using Gemini",
+    "main": "src/main.js",
+    "dependencies": {
+        "node-appwrite": "^14.0.0"
+    }
+}

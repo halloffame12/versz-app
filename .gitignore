@@ -1,0 +1,92 @@
+# ========================
+# General
+# ========================
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+Thumbs.db
+.history
+.svn/
+.atom/
+
+# ========================
+# IDE
+# ========================
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+
+# ========================
+# Node / Next.js
+# ========================
+node_modules/
+.next/
+out/
+dist/
+.npm/
+.cache/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# environment
+.env
+.env.local
+.env.development
+.env.production
+
+# ========================
+# Flutter / Dart
+# ========================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# generated docs
+**/doc/api/
+
+# iOS
+**/ios/Flutter/.last_build_id
+
+# ========================
+# Android
+# ========================
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# ========================
+# Appwrite
+# ========================
+.appwrite/
+
+# ========================
+# Build outputs
+# ========================
+tmp/
+temp/
+release/
+
+# ========================
+# Symbol / Obfuscation
+# ========================
+app.*.symbols
+app.*.map.json
+
+# ========================
+# Misc
+# ========================
+.build/
+.buildlog/
+migrate_working_dir/

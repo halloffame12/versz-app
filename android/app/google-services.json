@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "906432751701",
+    "project_id": "versz-b4776",
+    "storage_bucket": "versz-b4776.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:906432751701:android:302915451e3a0ffc410cdc",
+        "android_client_info": {
+          "package_name": "app.versz.social"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3fVWCnoyH6vrc6Plo-7NCqylg27BZoHk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,9 @@
+{
+    "name": "check-achievements",
+    "version": "1.0.0",
+    "description": "Check and award badges to users",
+    "main": "src/main.js",
+    "dependencies": {
+        "node-appwrite": "^14.0.0"
+    }
+}

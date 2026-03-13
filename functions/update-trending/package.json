@@ -1,0 +1,9 @@
+{
+    "name": "update-trending",
+    "version": "1.0.0",
+    "description": "Update trending scores for debates",
+    "main": "src/main.js",
+    "dependencies": {
+        "node-appwrite": "^14.0.0"
+    }
+}
