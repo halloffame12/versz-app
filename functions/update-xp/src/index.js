@@ -52,6 +52,32 @@ const STREAK_MILESTONES = [
     { days: 3,  xp: 10  },
 ];
 
+function extractUnknownAttribute(errorMessage) {
+    const match = /Unknown attribute: "([^"]+)"/.exec(errorMessage || '');
+    return match ? match[1] : null;
+}
+
+async function updateUserWithSchemaFallback(db, databaseId, userId, payload, log) {
+    const mutablePayload = { ...payload };
+
+    // Retry by removing unknown attributes one by one to tolerate schema drift.
+    while (Object.keys(mutablePayload).length > 0) {
+        try {
+            await db.updateDocument(databaseId, 'users', userId, mutablePayload);
+            return;
+        } catch (error) {
+            const unknown = extractUnknownAttribute(error?.message || '');
+            if (!unknown || !(unknown in mutablePayload)) {
+                throw error;
+            }
+            delete mutablePayload[unknown];
+            log(`update-xp: removed unknown users attribute "${unknown}" and retrying`);
+        }
+    }
+
+    throw new Error('No valid user attributes left to update');
+}
+
 function getDatabaseId() {
     return process.env.DATABASE_ID || process.env.APPWRITE_DATABASE_ID || 'versz-db';
 }
@@ -213,7 +239,7 @@ module.exports = async ({ req, res, log }) => {
             updatePayload.lastVoteDate = todayStr; // date-only string
         }
 
-        await db.updateDocument(databaseId, 'users', userId, updatePayload);
+        await updateUserWithSchemaFallback(db, databaseId, userId, updatePayload, log);
 
         log(`XP awarded: ${userId} action=${action} +${xpDelta} (base=${config.xp} streak=${streakXp}) total=${newXp}`);
 
