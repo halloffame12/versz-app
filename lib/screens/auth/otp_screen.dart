@@ -49,8 +49,20 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     final notifier = ref.read(authProvider.notifier);
     await notifier.verifyOTP(_otpCode);
 
-    if (mounted && ref.read(authProvider).isLoggedIn) {
+    if (!mounted) return;
+
+    final authState = ref.read(authProvider);
+    if (authState.isLoggedIn) {
+      // Router handles navigation via refreshListenable — no explicit go() needed,
+      // but leave the guard in case the router hasn't fired yet.
       context.go('/home');
+    } else if (authState.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authState.error!),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 

@@ -63,7 +63,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   AuthNotifier(this._account, this._databases)
-      : super(const AuthState());
+      : super(const AuthState(isLoading: true));
 
   bool isValidEmail(String email) => _emailRegex.hasMatch(email.trim().toLowerCase());
 
@@ -407,14 +407,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Logout
+  /// Logout — always clears local state even if the API call fails,
+  /// because a stale/gone session should never keep the user locked in.
   Future<void> logout() async {
     try {
       await _account.deleteSession(sessionId: 'current');
-      state = const AuthState();
-    } catch (e) {
-      state = state.copyWith(error: 'Logout failed: ${e.toString()}');
+    } catch (_) {
+      // Session may already be expired or deleted on the server side.
+      // Force local sign-out regardless.
     }
+    state = const AuthState();
   }
 
   /// Launch Google OAuth flow.

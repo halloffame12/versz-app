@@ -46,6 +46,10 @@ const sdk = require('node-appwrite');
 const MIN_VOTES_FOR_VERDICT = 10;
 const TIE_THRESHOLD = 0.05; // < 5% difference in confidence = statistical tie
 
+function getDatabaseId() {
+    return process.env.DATABASE_ID || process.env.APPWRITE_DATABASE_ID || 'versz-db';
+}
+
 /**
  * Wilson Score Lower Bound for a binomial proportion.
  * Answers: "What is the LOWER BOUND of the true win rate, at 95% confidence?"
@@ -65,21 +69,30 @@ function wilsonLowerBound(positive, n) {
 }
 
 module.exports = async ({ req, res, log }) => {
-    const client = new sdk.Client()
-        .setEndpoint(process.env.APPWRITE_ENDPOINT)
-        .setProject(process.env.APPWRITE_PROJECT_ID)
-        .setKey(process.env.APPWRITE_API_KEY);
+    let client;
+    let db;
+    let debateId;
 
-    const db = new sdk.Databases(client);
-    const body = JSON.parse(req.body || '{}');
-    const { debateId } = body;
+    try {
+        client = new sdk.Client()
+            .setEndpoint(process.env.APPWRITE_ENDPOINT)
+            .setProject(process.env.APPWRITE_PROJECT_ID)
+            .setKey(process.env.APPWRITE_API_KEY);
+
+        db = new sdk.Databases(client);
+        const body = JSON.parse(req.body || '{}');
+        debateId = body.debateId;
+    } catch (initErr) {
+        log(`calculate-winner init failed: ${initErr.message}`);
+        return res.json({ error: `Initialization failed: ${initErr.message}` }, 500);
+    }
 
     if (!debateId) {
         return res.json({ error: 'Missing debateId' }, 400);
     }
 
     try {
-        const debate = await db.getDocument(process.env.DATABASE_ID, 'debates', debateId);
+        const debate = await db.getDocument(getDatabaseId(), 'debates', debateId);
 
         const agreeCount = debate.agreeCount || 0;
         const disagreeCount = debate.disagreeCount || 0;
@@ -123,7 +136,7 @@ module.exports = async ({ req, res, log }) => {
         log(`Debate ${debateId}: winner=${winningSide} confidence=${confidence} (agreeConf=${agreeConf.toFixed(3)} disagreeConf=${disagreeConf.toFixed(3)})`);
 
         // ── Write winner to debate document ───────────────────────────────
-        await db.updateDocument(process.env.DATABASE_ID, 'debates', debateId, {
+        await db.updateDocument(getDatabaseId(), 'debates', debateId, {
             winningSide,
         });
 

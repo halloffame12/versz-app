@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $endpoint = $env:APPWRITE_ENDPOINT
 $project = $env:APPWRITE_PROJECT_ID
 $apiKey = $env:APPWRITE_API_KEY
+$db = if ([string]::IsNullOrWhiteSpace($env:DATABASE_ID)) { 'versz-db' } else { $env:DATABASE_ID }
 
 if ([string]::IsNullOrWhiteSpace($endpoint) -or [string]::IsNullOrWhiteSpace($project) -or [string]::IsNullOrWhiteSpace($apiKey)) {
   throw 'Missing APPWRITE_ENDPOINT / APPWRITE_PROJECT_ID / APPWRITE_API_KEY.'
@@ -14,25 +15,69 @@ $headers = @{
   'Content-Type' = 'application/json'
 }
 
-$cases = @(
-  @{ name='anti-spam-check';  body='{"userId":"smoke-user","action":"vote_cast"}'; expect='allow-or-validation' },
-  @{ name='cast-vote';        body='{"userId":"smoke-user","debateId":"smoke-debate","side":"agree"}'; expect='validation-or-not-found' },
-  @{ name='update-xp';        body='{"userId":"smoke-user","action":"vote_cast","referenceId":"smoke-debate"}'; expect='validation-or-not-found' },
-  @{ name='calculate-winner'; body='{"debateId":"smoke-debate"}'; expect='validation-or-not-found' },
-  @{ name='check-achievements'; body='{"userId":"smoke-user"}'; expect='validation-or-not-found' },
-  @{ name='gemini-summary';   body='{}'; expect='validation-or-config' },
-  @{ name='send-notification'; body='{"userId":"smoke-user","title":"Smoke","body":"Test","type":"system"}'; expect='validation-or-provider' },
-  @{ name='update-trending';  body='{}'; expect='scheduled-manual-ok' },
-  @{ name='update-leaderboard'; body='{}'; expect='scheduled-manual-ok' }
-)
+$readHeaders = @{
+  'X-Appwrite-Project' = $project
+  'X-Appwrite-Key' = $apiKey
+}
 
 function Get-FunctionsMap {
-  $resp = Invoke-RestMethod -Method Get -Uri "$endpoint/functions?limit=200" -Headers @{ 'X-Appwrite-Project' = $project; 'X-Appwrite-Key' = $apiKey }
+  $resp = Invoke-RestMethod -Method Get -Uri "$endpoint/functions?limit=200" -Headers $readHeaders
   $map = @{}
   foreach ($f in $resp.functions) {
     $map[$f.name] = $f.'$id'
   }
   return $map
+}
+
+function Get-SampleIds {
+  $out = [ordered]@{ UserId = $null; DebateId = $null }
+
+  try {
+    $users = Invoke-RestMethod -Method Get -Uri "$endpoint/databases/$db/collections/users/documents?limit=1" -Headers $readHeaders
+    if ($users.documents.Count -gt 0) { $out.UserId = $users.documents[0].'$id' }
+  } catch {}
+
+  try {
+    $debates = Invoke-RestMethod -Method Get -Uri "$endpoint/databases/$db/collections/debates/documents?limit=1" -Headers $readHeaders
+    if ($debates.documents.Count -gt 0) { $out.DebateId = $debates.documents[0].'$id' }
+  } catch {}
+
+  return $out
+}
+
+function Create-SmokeDebate([string]$userId) {
+  if ([string]::IsNullOrWhiteSpace($userId)) { return $null }
+
+  $payload = @{
+    documentId = 'unique()'
+    data = @{
+      topic = 'Function Smoke Debate'
+      description = 'Auto-created for function smoke validation'
+      category = 'general'
+      creatorId = $userId
+      creatorName = 'smoke-user'
+      agreeCount = 0
+      disagreeCount = 0
+      upvotes = 0
+      downvotes = 0
+      likeCount = 0
+      commentCount = 0
+      viewCount = 0
+      status = 'active'
+      isTrending = $false
+      trendingScore = 0.0
+      hashtags = ''
+      createdAt = (Get-Date).ToString('o')
+      updatedAt = (Get-Date).ToString('o')
+    }
+  } | ConvertTo-Json -Depth 10 -Compress
+
+  try {
+    $doc = Invoke-RestMethod -Method Post -Uri "$endpoint/databases/$db/collections/debates/documents" -Headers $headers -Body $payload
+    return $doc.'$id'
+  } catch {
+    return $null
+  }
 }
 
 function Start-Execution([string]$functionId, [string]$body) {
@@ -44,7 +89,7 @@ function Poll-Execution([string]$functionId, [string]$executionId, [int]$maxSeco
   $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
   do {
     Start-Sleep -Milliseconds 800
-    $e = Invoke-RestMethod -Method Get -Uri "$endpoint/functions/$functionId/executions/$executionId" -Headers @{ 'X-Appwrite-Project' = $project; 'X-Appwrite-Key' = $apiKey }
+    $e = Invoke-RestMethod -Method Get -Uri "$endpoint/functions/$functionId/executions/$executionId" -Headers $readHeaders
     if ($e.status -in @('completed', 'failed')) {
       return $e
     }
@@ -53,50 +98,63 @@ function Poll-Execution([string]$functionId, [string]$executionId, [int]$maxSeco
   return $e
 }
 
+Write-Host '== Function Smoke Test ==' -ForegroundColor Cyan
+
+$ids = Get-SampleIds
+if ([string]::IsNullOrWhiteSpace($ids.UserId)) {
+  throw 'No user found in users collection; cannot run smoke.'
+}
+if ([string]::IsNullOrWhiteSpace($ids.DebateId)) {
+  $ids.DebateId = Create-SmokeDebate -userId $ids.UserId
+}
+
+Write-Host "Using userId=$($ids.UserId)"
+Write-Host "Using debateId=$($ids.DebateId)"
+
+$cases = @(
+  @{ name='anti-spam-check'; body=(@{ userId=$ids.UserId; action='vote_cast' } | ConvertTo-Json -Compress) },
+  @{ name='cast-vote'; body=(@{ userId=$ids.UserId; debateId=$ids.DebateId; side='agree' } | ConvertTo-Json -Compress) },
+  @{ name='update-xp'; body=(@{ userId=$ids.UserId; action='vote_cast'; referenceId=$ids.DebateId } | ConvertTo-Json -Compress) },
+  @{ name='calculate-winner'; body=(@{ debateId=$ids.DebateId } | ConvertTo-Json -Compress) },
+  @{ name='check-achievements'; body=(@{ userId=$ids.UserId } | ConvertTo-Json -Compress) },
+  @{ name='gemini-summary'; body='{}' },
+  @{ name='send-notification'; body=(@{ userId=$ids.UserId; title='Smoke'; body='Function test'; type='system' } | ConvertTo-Json -Compress) },
+  @{ name='update-trending'; body='{}' },
+  @{ name='update-leaderboard'; body='{}' }
+)
+
 $map = Get-FunctionsMap
 $results = @()
-
-Write-Host '== Function Smoke Test ==' -ForegroundColor Cyan
 
 foreach ($c in $cases) {
   $name = $c.name
   if (-not $map.ContainsKey($name)) {
-    $results += [pscustomobject]@{
-      Function = $name
-      Status = 'RED'
-      ExecStatus = 'missing'
-      Http = ''
-      Note = 'Function not found'
-    }
+    $results += [pscustomobject]@{ Function=$name; Status='RED'; ExecStatus='missing'; Http=''; Note='Function not found' }
     continue
   }
 
-  $id = $map[$name]
+  if (($name -in @('cast-vote','calculate-winner')) -and [string]::IsNullOrWhiteSpace($ids.DebateId)) {
+    $results += [pscustomobject]@{ Function=$name; Status='SKIP'; ExecStatus='skipped'; Http=''; Note='No debate available' }
+    continue
+  }
+
   try {
-    $started = Start-Execution -functionId $id -body $c.body
-    $execId = $started.'$id'
-    $done = Poll-Execution -functionId $id -executionId $execId
+    $started = Start-Execution -functionId $map[$name] -body $c.body
+    $done = Poll-Execution -functionId $map[$name] -executionId $started.'$id'
 
-    $httpCode = ''
-    if ($null -ne $done.responseStatusCode) { $httpCode = [string]$done.responseStatusCode }
+    $httpCode = if ($null -ne $done.responseStatusCode) { [string]$done.responseStatusCode } else { '' }
+    $isGreen = $done.status -eq 'completed'
 
-    $ok = $done.status -eq 'completed'
-    $color = if ($ok) { 'GREEN' } else { 'RED' }
-
-    $note = ''
-    if ($ok) {
-      if ($httpCode -match '^(2|4)\d\d$') {
-        $note = 'Runnable (2xx/4xx acceptable for smoke payload)'
-      } else {
-        $note = 'Completed but non-2xx/4xx response'
-      }
+    $note = if ($isGreen) {
+      if ($httpCode -match '^(2|4)\d\d$') { 'Runnable (2xx/4xx acceptable for smoke payload)' }
+      else { 'Completed with non-2xx/4xx response' }
     } else {
-      $note = 'Execution failed'
+      'Execution failed'
     }
 
     $results += [pscustomobject]@{
       Function = $name
-      Status = $color
+      Status = if ($isGreen) { 'GREEN' } else { 'RED' }
       ExecStatus = $done.status
       Http = $httpCode
       Note = $note
@@ -104,13 +162,7 @@ foreach ($c in $cases) {
   } catch {
     $msg = $_.Exception.Message
     if ($_.ErrorDetails.Message) { $msg = $_.ErrorDetails.Message }
-    $results += [pscustomobject]@{
-      Function = $name
-      Status = 'RED'
-      ExecStatus = 'request-error'
-      Http = ''
-      Note = $msg
-    }
+    $results += [pscustomobject]@{ Function=$name; Status='RED'; ExecStatus='request-error'; Http=''; Note=$msg }
   }
 }
 
@@ -122,5 +174,5 @@ if ($reds -gt 0) {
   exit 2
 }
 
-Write-Host 'Smoke result: all GREEN' -ForegroundColor Green
+Write-Host 'Smoke result: all GREEN/SKIP' -ForegroundColor Green
 exit 0

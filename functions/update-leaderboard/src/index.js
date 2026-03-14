@@ -31,13 +31,22 @@ function getDatabaseId() {
 }
 
 module.exports = async ({ req, res, log }) => {
-    const client = new sdk.Client()
-        .setEndpoint(process.env.APPWRITE_ENDPOINT)
-        .setProject(process.env.APPWRITE_PROJECT_ID)
-        .setKey(process.env.APPWRITE_API_KEY);
+    let client;
+    let db;
+    let databaseId;
 
-    const db = new sdk.Databases(client);
-    const databaseId = getDatabaseId();
+    try {
+        client = new sdk.Client()
+            .setEndpoint(process.env.APPWRITE_ENDPOINT)
+            .setProject(process.env.APPWRITE_PROJECT_ID)
+            .setKey(process.env.APPWRITE_API_KEY);
+
+        db = new sdk.Databases(client);
+        databaseId = getDatabaseId();
+    } catch (initErr) {
+        log(`Leaderboard init failed: ${initErr.message}`);
+        return res.json({ error: `Initialization failed: ${initErr.message}` }, 500);
+    }
 
     try {
         const now = new Date();

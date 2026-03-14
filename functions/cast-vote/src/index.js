@@ -49,19 +49,24 @@ function sideToDelta(oldSide, newSide) {
 }
 
 module.exports = async ({ req, res, log }) => {
-  const client = new sdk.Client()
-    .setEndpoint(process.env.APPWRITE_ENDPOINT)
-    .setProject(process.env.APPWRITE_PROJECT_ID)
-    .setKey(process.env.APPWRITE_API_KEY);
-
-  const db = new sdk.Databases(client);
-  const databaseId = getDatabaseId();
-  const callerUserId = getCallerUserId(req);
+  let client;
+  let db;
+  let databaseId;
+  let callerUserId;
   let body = {};
+
   try {
+    client = new sdk.Client()
+      .setEndpoint(process.env.APPWRITE_ENDPOINT)
+      .setProject(process.env.APPWRITE_PROJECT_ID)
+      .setKey(process.env.APPWRITE_API_KEY);
+
+    db = new sdk.Databases(client);
+    databaseId = getDatabaseId();
+    callerUserId = getCallerUserId(req);
     body = JSON.parse(req.body || '{}');
   } catch {
-    return res.json({ error: 'Invalid JSON body' }, 400);
+    return res.json({ error: 'Initialization failed or invalid JSON body' }, 500);
   }
   const { userId, debateId } = body;
   const side = body.side === null ? null : String(body.side || '').trim();

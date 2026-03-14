@@ -99,27 +99,28 @@ class _LeaderboardScreenV2State extends ConsumerState<LeaderboardScreenV2> with 
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildLeaderboardTab(),
-          _buildLeaderboardTab(),
+          _buildLeaderboardTab(LeaderboardPeriod.allTime),
+          _buildLeaderboardTab(LeaderboardPeriod.weekly),
         ],
       ),
     );
   }
 
-  Widget _buildLeaderboardTab() {
+  Widget _buildLeaderboardTab(LeaderboardPeriod period) {
     final leaderState = ref.watch(leaderboardProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = AppColors.cardBackground(isDark);
     final text = AppColors.textColor(isDark);
     final muted = AppColors.mutedTextColor(isDark);
 
-    if (leaderState.isLoading && leaderState.entries.isEmpty) {
+    final isCurrent = leaderState.period == period;
+    if (isCurrent && leaderState.isLoading && leaderState.entriesFor(period).isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.accentCyan, strokeWidth: 2),
       );
     }
 
-    if (leaderState.error != null && leaderState.entries.isEmpty) {
+    if (leaderState.error != null && leaderState.entriesFor(period).isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -132,7 +133,7 @@ class _LeaderboardScreenV2State extends ConsumerState<LeaderboardScreenV2> with 
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => ref.read(leaderboardProvider.notifier).fetchLeaderboard(),
+              onPressed: () => ref.read(leaderboardProvider.notifier).fetchLeaderboard(period: period),
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.accentIndigo),
               child: const Text('Retry'),
             ),
@@ -141,7 +142,7 @@ class _LeaderboardScreenV2State extends ConsumerState<LeaderboardScreenV2> with 
       );
     }
 
-    final entries = leaderState.entries;
+    final entries = leaderState.entriesFor(period);
 
     if (entries.isEmpty) {
       return Center(
@@ -167,7 +168,7 @@ class _LeaderboardScreenV2State extends ConsumerState<LeaderboardScreenV2> with 
     return RefreshIndicator(
       color: AppColors.accentCyan,
       backgroundColor: cardBg,
-      onRefresh: () => ref.read(leaderboardProvider.notifier).fetchLeaderboard(),
+      onRefresh: () => ref.read(leaderboardProvider.notifier).fetchLeaderboard(period: period),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         itemCount: entries.length,

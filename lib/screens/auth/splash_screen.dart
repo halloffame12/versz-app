@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -48,25 +46,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
       }
 
       await Future.delayed(const Duration(milliseconds: 950));
-      
+
+      // Trigger auth check — the router's refreshListenable will handle
+      // navigation automatically once authProvider emits the new state.
       await ref.read(authProvider.notifier).checkAuthStatus();
-      
-      if (mounted) {
-        final authState = ref.read(authProvider);
-        if (authState.isLoggedIn && authState.user != null) {
-          final prefs = await SharedPreferences.getInstance();
-          final key = 'onboardingComplete_${authState.user!.id}';
-          final onboardingDone = prefs.getBool(key) ?? false;
-          if (!mounted) return;
-          context.go(onboardingDone ? '/home' : '/onboarding/username');
-        } else {
-          context.go('/login');
-        }
-      }
     } catch (e) {
-      if (mounted) {
-        context.go('/login');
-      }
+      // checkAuthStatus handles its own errors; nothing to do here.
     }
   }
 

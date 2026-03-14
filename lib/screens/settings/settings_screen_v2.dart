@@ -305,8 +305,8 @@ class _SettingsScreenV2State extends ConsumerState<SettingsScreenV2> {
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       await ref.read(authProvider.notifier).logout();
-                      if (!context.mounted) return;
-                      context.go('/login');
+                      // Router's refreshListenable detects isLoggedIn=false
+                      // and redirects to /login automatically.
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.errorRed.withValues(alpha: 0.18),

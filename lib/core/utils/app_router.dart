@@ -1,7 +1,9 @@
-import 'package:appwrite/appwrite.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/appwrite_constants.dart';
+import '../../providers/auth_provider.dart';
 import '../../screens/auth/splash_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/signup_screen.dart';
@@ -14,7 +16,7 @@ import '../../screens/main/home_shell.dart';
 import '../../screens/main/home_screen_v2.dart';
 import '../../screens/main/search_screen.dart';
 import '../../screens/main/rooms_screen.dart';
-import '../../screens/main/notifications_screen.dart';
+import '../../screens/main/notifications_screen_v2.dart';
 import '../../screens/main/leaderboard_screen_v2.dart';
 import '../../screens/main/chat_detail_screen.dart';
 import '../../screens/messages/conversations_screen.dart';
@@ -34,62 +36,73 @@ import '../../models/debate.dart';
 import '../../models/room.dart';
 import '../../models/conversation.dart';
 
-final appRouter = GoRouter(
-  initialLocation: '/',
-  redirect: (context, state) async {
-    final path = state.matchedLocation;
+/// ChangeNotifier that triggers whenever the auth state stream emits.
+/// Used as GoRouter's refreshListenable so the router re-evaluates redirects
+/// every time auth state changes (login, logout, etc.).
+class _GoRouterRefreshStream extends ChangeNotifier {
+  _GoRouterRefreshStream(Stream<dynamic> stream) {
+    _subscription = stream.listen((_) => notifyListeners());
+  }
+  late final StreamSubscription<dynamic> _subscription;
 
-    // Define route categories
-    const authRoutes = {'/login', '/signup', '/otp', '/forgot', '/auth/success', '/auth/failure'};
-    const onboardingRoutes = {'/onboarding/username', '/onboarding/interests'};
-    const publicRoutes = {'/', ...authRoutes};
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
 
-    final isAuthRoute = authRoutes.contains(path);
-    final isOnboardingRoute = onboardingRoutes.contains(path);
-    final isPublicRoute = publicRoutes.contains(path);
+/// Riverpod-connected GoRouter. Reacts to [authProvider] state changes via
+/// [refreshListenable], so logout/login always triggers route re-evaluation.
+final routerProvider = Provider<GoRouter>((ref) {
+  final authNotifier = ref.read(authProvider.notifier);
 
-    // Check if user is logged in
-    String? userId;
-    try {
-      final client = Client()
-          .setEndpoint(AppwriteConstants.endpoint)
-          .setProject(AppwriteConstants.projectId);
-      final account = Account(client);
-      final session = await account.getSession(sessionId: 'current');
-      userId = session.userId;
-    } catch (_) {
-      userId = null;
-    }
+  final router = GoRouter(
+    initialLocation: '/',
+    refreshListenable: _GoRouterRefreshStream(authNotifier.stream),
+    redirect: (context, state) async {
+      final authState = ref.read(authProvider);
+      final path = state.matchedLocation;
 
-    // ===== USER NOT LOGGED IN =====
-    if (userId == null) {
-      if (isOnboardingRoute) return '/signup';
-      if (isPublicRoute) return null; // Allow access to public routes
-      return '/login'; // Redirect to login for protected routes
-    }
+      const authRoutes = {'/login', '/signup', '/otp', '/forgot', '/auth/success', '/auth/failure'};
+      const onboardingRoutes = {'/onboarding/username', '/onboarding/interests'};
 
-    // ===== USER IS LOGGED IN =====
-    final prefs = await SharedPreferences.getInstance();
-    final onboardingDone = prefs.getBool('onboardingComplete_$userId') ?? false;
-    final onboardingRequired = prefs.getBool('onboardingRequired_$userId') ?? false;
+      final isAuthRoute = authRoutes.contains(path);
+      final isOnboardingRoute = onboardingRoutes.contains(path);
 
-    // Returning or normal-login user: never show auth/onboarding screens.
-    if (!onboardingRequired || onboardingDone) {
-      if (isAuthRoute || isOnboardingRoute || path == '/') {
-        return '/home';
+      // While auth is initialising, stay on splash so we don't flash login screen.
+      if (authState.isLoading) {
+        return path == '/' ? null : '/';
       }
+
+      // ===== USER NOT LOGGED IN =====
+      if (!authState.isLoggedIn) {
+        if (isOnboardingRoute) return '/signup';
+        if (path == '/' || isAuthRoute) return null;
+        return '/login';
+      }
+
+      // ===== USER IS LOGGED IN =====
+      final userId = authState.user?.id ?? '';
+      final prefs = await SharedPreferences.getInstance();
+      final onboardingDone = prefs.getBool('onboardingComplete_$userId') ?? false;
+      final onboardingRequired = prefs.getBool('onboardingRequired_$userId') ?? false;
+
+      // Returning user: skip auth/onboarding screens.
+      if (!onboardingRequired || onboardingDone) {
+        if (isAuthRoute || isOnboardingRoute || path == '/') return '/home';
+        return null;
+      }
+
+      // Fresh signup: drive through onboarding until complete.
+      if (!onboardingDone) {
+        if (isOnboardingRoute) return null;
+        return '/onboarding/username';
+      }
+
       return null;
-    }
-
-    // Fresh signup user: keep user in onboarding until completed.
-    if (!onboardingDone) {
-      if (isOnboardingRoute) return null;
-      return '/onboarding/username';
-    }
-
-    return null;
-  },
-  routes: [
+    },
+    routes: [
     GoRoute(
       path: '/',
       builder: (context, state) => const SplashScreen(),
@@ -225,7 +238,7 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: '/notifications',
-          builder: (context, state) => const NotificationsScreen(),
+          builder: (context, state) => const NotificationsScreenV2(),
         ),
         GoRoute(
           path: '/profile',
@@ -234,4 +247,7 @@ final appRouter = GoRouter(
       ],
     ),
   ],
-);
+  );
+
+  return router;
+});

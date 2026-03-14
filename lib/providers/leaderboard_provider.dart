@@ -15,12 +15,15 @@ class LeaderboardState {
   final bool isLoading;
   final LeaderboardPeriod period;
   final String? error;
+  /// Per-period cache so switching tabs doesn't discard already-loaded data.
+  final Map<LeaderboardPeriod, List<UserAccount>> cache;
 
   LeaderboardState({
     this.entries = const [],
     this.isLoading = false,
     this.period = LeaderboardPeriod.weekly,
     this.error,
+    this.cache = const {},
   });
 
   LeaderboardState copyWith({
@@ -28,14 +31,18 @@ class LeaderboardState {
     bool? isLoading,
     LeaderboardPeriod? period,
     String? error,
+    Map<LeaderboardPeriod, List<UserAccount>>? cache,
   }) {
     return LeaderboardState(
       entries: entries ?? this.entries,
       isLoading: isLoading ?? this.isLoading,
       period: period ?? this.period,
       error: error ?? this.error,
+      cache: cache ?? this.cache,
     );
   }
+
+  List<UserAccount> entriesFor(LeaderboardPeriod p) => cache[p] ?? entries;
 }
 
 class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
@@ -71,7 +78,9 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       final entries = [...rawEntries]
         ..sort((a, b) => _scoreFor(b, targetPeriod).compareTo(_scoreFor(a, targetPeriod)));
 
-      state = state.copyWith(entries: entries, isLoading: false);
+      final updatedCache = Map<LeaderboardPeriod, List<UserAccount>>.from(state.cache)
+        ..[targetPeriod] = entries;
+      state = state.copyWith(entries: entries, isLoading: false, cache: updatedCache);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
