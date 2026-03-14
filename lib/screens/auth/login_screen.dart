@@ -27,22 +27,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    if (!email.contains('@')) {
+    final notifier = ref.read(authProvider.notifier);
+
+    if (!notifier.isValidEmail(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid email address.')),
       );
       return;
     }
-    if (password.isEmpty) {
+    if (password.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter your password.')),
+        const SnackBar(content: Text('Password must be at least 8 characters.')),
       );
       return;
     }
 
-    final notifier = ref.read(authProvider.notifier);
     await notifier.login(email, password);
-    
+
     if (mounted && ref.read(authProvider).isLoggedIn) {
       context.go('/home');
     }

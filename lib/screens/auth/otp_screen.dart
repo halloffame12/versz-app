@@ -41,14 +41,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   String get _otpCode => _otpControllers.map((c) => c.text).join();
 
   void _verifyOtp() async {
-    if (_otpCode.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter all 6 digits')));
+    if (_otpCode.length != 6 || int.tryParse(_otpCode) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid 6-digit OTP code.')));
       return;
     }
 
     final notifier = ref.read(authProvider.notifier);
     await notifier.verifyOTP(_otpCode);
-    
+
     if (mounted && ref.read(authProvider).isLoggedIn) {
       context.go('/home');
     }
@@ -193,9 +193,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                             onChanged: (val) {
                               if (val.isNotEmpty && i < 5) {
                                 FocusScope.of(context).nextFocus();
-                              }
-                              if (_otpCode.length == 6) {
-                                _verifyOtp();
                               }
                             },
                           ),

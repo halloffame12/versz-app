@@ -60,8 +60,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final Databases _databases;
   final NotificationService _notificationService = NotificationService();
 
+  static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   AuthNotifier(this._account, this._databases)
       : super(const AuthState());
+
+  bool isValidEmail(String email) => _emailRegex.hasMatch(email.trim().toLowerCase());
+
+  String _friendlyAuthError(Object error, {required String fallback}) {
+    final raw = error.toString();
+    final lower = raw.toLowerCase();
+
+    if (lower.contains('user_already_exists')) {
+      return 'An account with this email already exists. Please login instead.';
+    }
+    if (lower.contains('invalid_credentials')) {
+      return 'Invalid email or password.';
+    }
+    if (lower.contains('user_unauthorized')) {
+      return 'Your session expired. Please sign in again.';
+    }
+    if (lower.contains('general_argument_invalid') || lower.contains('invalid email')) {
+      return 'Please enter a valid email address.';
+    }
+    if (lower.contains('rate_limit')) {
+      return 'Too many requests. Please wait a moment and try again.';
+    }
+
+    return fallback;
+  }
 
   Future<void> _setOnboardingRequired(String userId, bool required) async {
     final prefs = await SharedPreferences.getInstance();
@@ -137,7 +164,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _friendlyAuthError(e, fallback: 'Login failed. Please try again.'),
       );
     }
   }
@@ -162,7 +189,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to send OTP: ${e.toString()}',
+        error: _friendlyAuthError(e, fallback: 'Failed to send OTP. Please try again.'),
       );
     }
   }
@@ -217,7 +244,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Invalid OTP: ${e.toString()}',
+        error: _friendlyAuthError(e, fallback: 'Invalid or expired OTP. Please request a new code.'),
       );
     }
   }
@@ -241,7 +268,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return;
       }
-      if (!normalizedEmail.contains('@')) {
+      if (!isValidEmail(normalizedEmail)) {
         state = state.copyWith(
           isLoading: false,
           error: 'Enter a valid email address.',
@@ -311,7 +338,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Signup failed: ${e.toString()}',
+        error: _friendlyAuthError(e, fallback: 'Signup failed. Please try again.'),
       );
     }
   }
@@ -420,7 +447,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Recovery email failed: ${e.toString()}',
+        error: _friendlyAuthError(e, fallback: 'Could not send recovery email. Please try again.'),
       );
     }
   }

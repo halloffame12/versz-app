@@ -9,10 +9,17 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.accentPurple,
+        seedColor: AppColors.accentPrimary,
         brightness: Brightness.light,
+      ).copyWith(
+        primary: AppColors.accentPrimary,
+        onPrimary: Colors.white,
+        secondary: AppColors.surfaceBackground,
+        onSecondary: AppColors.textPrimary,
+        surface: AppColors.surfaceBackground,
+        onSurface: AppColors.textPrimary,
       ),
-      scaffoldBackgroundColor: AppColors.white,
+      scaffoldBackgroundColor: AppColors.pageBackground,
       textTheme: _lightTextTheme(),
       appBarTheme: AppBarThemeData.light(),
       cardTheme: _lightCardTheme(),
@@ -33,20 +40,19 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.darkBackground,
+      scaffoldBackgroundColor: AppColors.pageBackground,
 
-      // Color scheme with new purple/indigo/cyan gradient theme
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.accentPurple,
-        onPrimary: AppColors.textPrimary,
-        secondary: AppColors.accentIndigo,
-        onSecondary: AppColors.textPrimary,
-        tertiary: AppColors.accentCyan,
+        primary: AppColors.accentPrimary,
+        onPrimary: Colors.white,
+        secondary: AppColors.accentPrimaryDark,
+        onSecondary: Colors.white,
+        tertiary: AppColors.accentPrimary,
         error: AppColors.disagreeRed,
-        onError: AppColors.textPrimary,
-        surface: AppColors.darkCardBg,
+        onError: Colors.white,
+        surface: AppColors.surfaceBackground,
         onSurface: AppColors.textPrimary,
-        outline: AppColors.mutedGray,
+        outline: AppColors.darkBorder,
       ),
 
       textTheme: _darkTextTheme(),
@@ -97,8 +103,8 @@ class AppTheme {
       );
 
   static TextTheme _darkTextTheme() => _lightTextTheme().apply(
-        bodyColor: AppColors.darkText,
-        displayColor: AppColors.darkText,
+        bodyColor: AppColors.textPrimary,
+        displayColor: AppColors.textPrimary,
       );
 
   static CardThemeData _lightCardTheme() => CardThemeData(
@@ -117,7 +123,7 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: AppColors.accentIndigo, width: 1),
+          side: const BorderSide(color: AppColors.darkBorderHi, width: 1),
         ),
       );
 
@@ -208,7 +214,7 @@ class AppTheme {
   static OutlinedButtonThemeData _outlinedButtonTheme({required bool isDark}) => OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: isDark ? AppColors.textPrimary : AppColors.voidBlack,
-          side: BorderSide(color: isDark ? AppColors.accentIndigo : AppColors.voidBlack, width: 2),
+          side: BorderSide(color: isDark ? AppColors.darkBorderHi : AppColors.darkBorder, width: 2),
           minimumSize: const Size.fromHeight(44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -217,7 +223,7 @@ class AppTheme {
   static OutlinedButtonThemeData _outlinedButtonThemeDark() => OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.accentIndigo, width: 2),
+          side: const BorderSide(color: AppColors.darkBorderHi, width: 2),
           minimumSize: const Size.fromHeight(44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -240,19 +246,19 @@ class AppTheme {
 
 class AppBarThemeData {
   static AppBarTheme light() => AppBarTheme(
-    backgroundColor: AppColors.white,
-    foregroundColor: AppColors.darkBackground,
+    backgroundColor: AppColors.pageBackground,
+    foregroundColor: AppColors.textPrimary,
     elevation: 0,
     scrolledUnderElevation: 0,
     centerTitle: false,
     titleTextStyle: AppTextStyles.h3,
     toolbarHeight: 64,
-    iconTheme: const IconThemeData(color: AppColors.darkBackground, size: 24),
-    actionsIconTheme: const IconThemeData(color: AppColors.darkBackground, size: 24),
+    iconTheme: const IconThemeData(color: AppColors.textPrimary, size: 24),
+    actionsIconTheme: const IconThemeData(color: AppColors.textPrimary, size: 24),
   );
 
   static AppBarTheme dark() => AppBarTheme(
-    backgroundColor: AppColors.darkBackground,
+    backgroundColor: AppColors.pageBackground,
     foregroundColor: AppColors.textPrimary,
     elevation: 0,
     scrolledUnderElevation: 0,

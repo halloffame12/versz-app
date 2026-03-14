@@ -1,154 +1,139 @@
 import 'package:flutter/material.dart';
 
-/// NEW MODERN GRADIENT THEME - PURPLE/INDIGO/CYAN
-/// Primary colors with maximum contrast for readability
+/// Versz production design palette.
+/// Primary background: #FAF3E1
+/// Secondary background: #F5E7C6
+/// Accent: #FA8112
+/// Text: #222222
 class AppColors {
-  // *** PRIMARY BACKGROUND COLORS ***
-  static const Color darkBackground = Color(0xFF0B0B0F); // Primary dark black
-  static const Color darkBg = Color(0xFF0B0B0F); // Alias
-  static const Color darkBg2 = Color(0xFF0D0D12); // Alternative dark black
+  // Core palette tokens
+  static const Color pageBackground = Color(0xFFFAF3E1);
+  static const Color surfaceBackground = Color(0xFFF5E7C6);
+  static const Color accentPrimary = Color(0xFFFA8112);
+  static const Color accentPrimaryDark = Color(0xFFD96B0C);
+  static const Color textPrimary = Color(0xFF222222);
+  static const Color textSecondary = Color(0xFF5E5548);
+  static const Color textMuted = Color(0xFF7A6F5E);
 
-  // *** CARD & SURFACE COLORS ***
-  static const Color darkCardBg = Color(0xFF111827); // Dark slate for cards
-  static const Color darkSurface = Color(0xFF1F2937); // Surface elements
-  static const Color darkSurfaceHigh = Color(0xFF2D3748); // Higher surfaces
+  // Compatibility aliases used across legacy screens
+  static const Color darkBackground = pageBackground;
+  static const Color darkBg = pageBackground;
+  static const Color darkBg2 = Color(0xFFF2E2BE);
 
-  // *** PRIMARY ACCENT COLORS - PURPLE/INDIGO GRADIENT ***
-  static const Color accentPurple = Color(0xFF6C5CE7); // Purple - PRIMARY
-  static const Color accentIndigo = Color(0xFF4F46E5); // Indigo - PRIMARY
-  static const Color primaryPurple = Color(0xFF6C5CE7); // Alias
-  static const Color royalBlue = Color(0xFF4F46E5); // Alias - Indigo
+  static const Color darkCardBg = surfaceBackground;
+  static const Color darkSurface = Color(0xFFFFF7E9);
+  static const Color darkSurfaceHigh = Color(0xFFFFFFFF);
 
-  // *** SECONDARY ACCENT - CYAN/BLUE GLOW ***
-  static const Color accentCyan = Color(0xFF06B6D4); // Cyan - HIGHLIGHT
-  static const Color accentBlue = Color(0xFF22D3EE); // Light cyan
-  static const Color accentTeal = Color(0xFF0891B2); // Teal
-  static const Color neonCyan = Color(0xFF06B6D4); // Bright cyan
+  static const Color accentPurple = accentPrimary;
+  static const Color accentIndigo = accentPrimaryDark;
+  static const Color primaryPurple = accentPrimary;
+  static const Color royalBlue = accentPrimaryDark;
 
-  // *** TEXT COLORS - HIGH CONTRAST ***
-  static const Color textPrimary = Color(0xFFFFFFFF); // Pure white
-  static const Color textSecondary = Color(0xFF9CA3AF); // Muted gray
-  static const Color textMuted = Color(0xFF6B7280); // More muted gray
-  static const Color darkText = Color(0xFF0B0B0F); // For light backgrounds
+  static const Color accentCyan = accentPrimary;
+  static const Color accentBlue = accentPrimaryDark;
+  static const Color accentTeal = accentPrimaryDark;
+  static const Color neonCyan = accentPrimary;
 
-  // *** STATUS COLORS ***
-  static const Color successGreen = Color(0xFF10B981); // Green - Agree/Success
-  static const Color agreeGreen = Color(0xFF10B981); // Agree side
-  static const Color errorRed = Color(0xFFEF4444); // Red - Error/Disagree
-  static const Color disagreeRed = Color(0xFFEF4444); // Disagree side
-  static const Color warningOrange = Color(0xFFFB923C); // Warning
-  static const Color aiPurple = Color(0xFF6C5CE7); // AI indicator
+  static const Color darkText = textPrimary;
 
-  // *** ALIASES FOR COMPATIBILITY ***
-  static const Color primaryYellow = accentCyan; // Swap to cyan
-  static const Color primaryBlack = darkBackground;
-  static const Color voidBlack = darkBg2;
-  static const Color electricYellow = accentCyan; // Legacy alias
-  static const Color accentOrange = warningOrange;
+  // Status colors
+  static const Color successGreen = Color(0xFF2E7D32);
+  static const Color agreeGreen = successGreen;
+  static const Color errorRed = Color(0xFFC62828);
+  static const Color disagreeRed = errorRed;
+  static const Color warningOrange = Color(0xFFEF6C00);
+  static const Color aiPurple = accentPrimaryDark;
+
+  // Additional aliases
+  static const Color primaryYellow = accentPrimary;
+  static const Color primaryBlack = textPrimary;
+  static const Color voidBlack = textPrimary;
+  static const Color electricYellow = accentPrimary;
+  static const Color accentOrange = accentPrimary;
   static const Color trendingRed = errorRed;
 
-  // *** STATUS ALIASES ***
   static const Color success = successGreen;
   static const Color error = errorRed;
   static const Color warning = warningOrange;
   static const Color agree = agreeGreen;
   static const Color disagree = disagreeRed;
 
-  // *** BORDERS & DIVIDERS ***
-  static const Color darkBorder = Color(0xFF374151); // Subtle borders
-  static const Color darkBorderHi = Color(0xFF4B5563); // Prominent borders
-  static const Color borderGray = Color(0xFF374151); // Border color
-  static const Color mutedGray = Color(0xFF6B7280); // Muted text
+  static const Color darkBorder = Color(0xFFD7C4A2);
+  static const Color darkBorderHi = Color(0xFFCCB48B);
+  static const Color borderGray = darkBorder;
+  static const Color mutedGray = textMuted;
 
-  // *** SURFACES ***
-  static const Color surface = Color(0xFF1F2937); // Alternative surface
-  static const Color background = darkBackground;
-  static const Color card = darkCardBg;
-  static const Color surfaceLight = Color(0xFF2A3142); // Subtle BG
-  static const Color darkTextSub = Color(0xFF9CA3AF); // Subtext
+  static const Color surface = surfaceBackground;
+  static const Color background = pageBackground;
+  static const Color card = surfaceBackground;
+  static const Color surfaceLight = Color(0xFFFFFAF0);
+  static const Color darkTextSub = textSecondary;
 
-  // *** CHROME/SPECIAL ACCENTS ***
-  static const Color chromeGold = Color(0xFFDAA520); // Gold accent
-  static const Color chromeSilver = Color(0xFFC0C0C0); // Silver accent
-  static const Color chromeBronze = Color(0xFFCD7F32); // Bronze
-  static const Color hotPink = Color(0xFFFF2D78); // Hot pink
+  static const Color chromeGold = Color(0xFFB9842A);
+  static const Color chromeSilver = Color(0xFF9E9E9E);
+  static const Color chromeBronze = Color(0xFF8D5A2B);
+  static const Color hotPink = Color(0xFFD81B60);
 
-  // *** LIGHT MODE COLORS ***
   static const Color white = Color(0xFFFFFFFF);
-  static const Color offWhite = Color(0xFFF5F5F0);
-  static const Color lightGray = Color(0xFFEEEEEE);
-  static const Color mediumGray = Color(0xFFB0B0B0);
-  static const Color inkBlack = Color(0xFF0B0B0F);
+  static const Color offWhite = pageBackground;
+  static const Color lightGray = Color(0xFFEEE2C8);
+  static const Color mediumGray = Color(0xFFB8A88A);
+  static const Color inkBlack = textPrimary;
 
-  // *** SEMANTIC ALIASES ***
-  static const Color accent = accentPurple;
-  static const Color primary = accentPurple;
+  static const Color accent = accentPrimary;
+  static const Color primary = accentPrimary;
   static const Color liked = errorRed;
-  static const Color commented = accentCyan;
-  static const Color saved = accentCyan;
+  static const Color commented = accentPrimary;
+  static const Color saved = accentPrimary;
 
-  // *** GRADIENTS - MAIN THEME ***
-  // Main gradient: Purple → Indigo → Cyan
   static const LinearGradient primaryGradient = LinearGradient(
-    begin: Alignment(0, 0),
-    end: Alignment(1, 1),
-    colors: [accentPurple, accentIndigo, accentCyan],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFFA344), accentPrimary],
   );
 
-  // Linear gradient for bars/backgrounds
   static const LinearGradient primaryGradientLinear = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [accentPurple, accentIndigo],
+    colors: [Color(0xFFFFB665), accentPrimary],
   );
 
-  // Hero gradient for buttons/highlights
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [accentPurple, accentIndigo, accentCyan],
-    stops: [0.0, 0.5, 1.0],
+    colors: [Color(0xFFFFB665), accentPrimary, accentPrimaryDark],
+    stops: [0.0, 0.55, 1.0],
   );
 
-  // Premium gradient
-  static const LinearGradient premiumGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [accentPurple, accentIndigo, accentCyan],
-  );
+  static const LinearGradient premiumGradient = heroGradient;
 
-  // Accent gradient
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [accentPurple, accentCyan],
+    colors: [Color(0xFFFFB665), accentPrimary],
   );
 
-  // Warm gradient
   static const LinearGradient warmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [warningOrange, errorRed],
+    colors: [Color(0xFFFFC17B), warningOrange],
   );
 
-  // Background gradient
   static const LinearGradient bgGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [darkBackground, darkBg2],
+    colors: [pageBackground, surfaceBackground],
   );
 
-  // *** THEME HELPERS ***
-  static Color textColor(bool isDark) => isDark ? textPrimary : darkText;
-  
-  static Color backgroundColor(bool isDark) => isDark ? darkBackground : offWhite;
-  
-  static Color cardBackground(bool isDark) => isDark ? darkCardBg : white;
-  
-  static Color borderColor(bool isDark) => isDark ? darkBorder : borderGray;
-  
-  static Color mutedTextColor(bool isDark) => isDark ? textMuted : mutedGray;
-  
-  static Color opaque(Color color, double alpha) =>
-      color.withValues(alpha: alpha);
+  static Color textColor(bool isDark) => textPrimary;
+
+  static Color backgroundColor(bool isDark) => pageBackground;
+
+  static Color cardBackground(bool isDark) => surfaceBackground;
+
+  static Color borderColor(bool isDark) => darkBorder;
+
+  static Color mutedTextColor(bool isDark) => textMuted;
+
+  static Color opaque(Color color, double alpha) => color.withValues(alpha: alpha);
 }

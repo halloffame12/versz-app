@@ -43,7 +43,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       );
       return;
     }
-    if (!email.contains('@')) {
+    if (!ref.read(authProvider.notifier).isValidEmail(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid email address.')),
       );
