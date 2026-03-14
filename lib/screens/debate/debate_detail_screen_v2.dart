@@ -56,8 +56,8 @@ class DebateDetailScreenV2 extends ConsumerWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.accentPurple.withValues(alpha: 0.25),
-                      AppColors.accentIndigo.withValues(alpha: 0.18),
+                      AppColors.accentPrimary.withValues(alpha: 0.25),
+                      AppColors.accentPrimaryDark.withValues(alpha: 0.18),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -85,7 +85,7 @@ class DebateDetailScreenV2 extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                               ),
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -216,7 +216,7 @@ class DebateDetailScreenV2 extends ConsumerWidget {
                             minHeight: 10,
                             borderRadius: BorderRadius.circular(8),
                             backgroundColor: AppColors.errorRed.withValues(alpha: 0.2),
-                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accentCyan),
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.successGreen),
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -252,18 +252,21 @@ class DebateDetailScreenV2 extends ConsumerWidget {
                           icon: Icons.thumb_up_alt_rounded,
                           label: 'Agree',
                           active: userVote == 1,
+                          activeColor: AppColors.successGreen,
                           onTap: () => ref.read(debateProvider.notifier).castDebateVoteOptimistic(debate.id, 1),
                         ),
                         _actionButton(
                           icon: Icons.thumb_down_alt_rounded,
                           label: 'Disagree',
                           active: userVote == -1,
+                          activeColor: AppColors.errorRed,
                           onTap: () => ref.read(debateProvider.notifier).castDebateVoteOptimistic(debate.id, -1),
                         ),
                         _actionButton(
                           icon: isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                           label: isLiked ? 'Liked' : 'Like',
                           active: isLiked,
+                          activeColor: AppColors.errorRed,
                           onTap: () => ref.read(debateProvider.notifier).toggleLikeOptimistic(debate.id),
                         ),
                         _actionButton(
@@ -308,15 +311,17 @@ class DebateDetailScreenV2 extends ConsumerWidget {
     required String label,
     required bool active,
     required VoidCallback onTap,
+    Color? activeColor,
   }) {
+    final Color color = active ? (activeColor ?? AppColors.accentPrimary) : AppColors.textSecondary;
     return OutlinedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: active ? AppColors.accentCyan : AppColors.textSecondary,
+        foregroundColor: color,
         side: BorderSide(
-          color: active ? AppColors.accentCyan : AppColors.darkBorder,
+          color: active ? color : AppColors.darkBorder,
         ),
       ),
     );

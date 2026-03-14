@@ -99,7 +99,7 @@ class _DirectMessageScreenV2State extends ConsumerState<DirectMessageScreenV2> {
                             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
                             decoration: BoxDecoration(
                               gradient: isSent
-                                  ? LinearGradient(colors: [AppColors.accentPurple, AppColors.accentIndigo])
+                                  ? LinearGradient(colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark])
                                   : null,
                               color: isSent ? null : cardBg,
                               borderRadius: BorderRadius.circular(14),

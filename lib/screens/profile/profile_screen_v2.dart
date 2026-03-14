@@ -202,7 +202,7 @@ class _ProfileScreenV2State extends ConsumerState<ProfileScreenV2> {
                           shape: BoxShape.circle,
                           border: Border.all(color: bg, width: 3),
                           gradient: const LinearGradient(
-                            colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                            colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                           ),
                         ),
                         child: ClipOval(
@@ -453,9 +453,9 @@ class _ProfileScreenV2State extends ConsumerState<ProfileScreenV2> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppColors.accentPurple,
-              AppColors.accentIndigo,
-              AppColors.accentCyan
+              AppColors.accentLight,
+              AppColors.accentPrimary,
+              AppColors.accentPrimaryDark,
             ],
           ),
         ),
@@ -595,7 +595,7 @@ class _AchievementBadge extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: earned
               ? const LinearGradient(
-                  colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                  colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
@@ -604,7 +604,7 @@ class _AchievementBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: earned
-                ? AppColors.accentCyan.withValues(alpha: 0.4)
+                ? AppColors.accentPrimary.withValues(alpha: 0.4)
                 : AppColors.darkBorder,
           ),
         ),

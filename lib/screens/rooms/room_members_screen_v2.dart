@@ -83,7 +83,7 @@ class RoomMembersScreenV2 extends ConsumerWidget {
                               height: 52,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                  colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                                 ),
                                 borderRadius: BorderRadius.circular(26),
                               ),

@@ -36,14 +36,14 @@ class AboutScreen extends StatelessWidget {
               height: 100,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+                  colors: [AppColors.accentLight, AppColors.accentPrimary, AppColors.accentPrimaryDark],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.accentPurple.withValues(alpha: 0.5),
+                    color: AppColors.accentPrimary.withValues(alpha: 0.5),
                     blurRadius: 24,
                     spreadRadius: 4,
                   ),
@@ -64,7 +64,7 @@ class AboutScreen extends StatelessWidget {
 
             ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(
-                colors: [AppColors.accentPurple, AppColors.accentCyan],
+                colors: [AppColors.accentLight, AppColors.accentPrimary],
               ).createShader(bounds),
               child: Text(
                 'VERSZ',

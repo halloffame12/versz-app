@@ -63,8 +63,8 @@ class _ConversationsScreenV2State extends ConsumerState<ConversationsScreenV2> w
         elevation: 0,
         automaticallyImplyLeading: false,
         title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [AppColors.accentLight, AppColors.accentPrimary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ).createShader(bounds),
@@ -290,7 +290,7 @@ class _ConversationsScreenV2State extends ConsumerState<ConversationsScreenV2> w
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
                                             gradient: LinearGradient(
-                                              colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                              colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                                             ),
                                             borderRadius: BorderRadius.circular(99),
                                           ),

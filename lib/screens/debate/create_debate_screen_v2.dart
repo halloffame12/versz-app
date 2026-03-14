@@ -123,8 +123,8 @@ class _CreateDebateScreenV2State extends ConsumerState<CreateDebateScreenV2> wit
           child: Icon(Icons.arrow_back_rounded, color: AppColors.accentCyan),
         ),
         title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [AppColors.accentLight, AppColors.accentPrimary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ).createShader(bounds),
@@ -230,13 +230,13 @@ class _CreateDebateScreenV2State extends ConsumerState<CreateDebateScreenV2> wit
                     onTap: _isSubmitting ? null : _submitDebate,
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+                        gradient: const LinearGradient(
+                          colors: [AppColors.accentLight, AppColors.accentPrimary],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.accentPurple.withValues(alpha: 0.4),
+                            color: AppColors.accentPrimary.withValues(alpha: 0.4),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),

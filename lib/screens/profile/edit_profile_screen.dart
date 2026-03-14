@@ -322,7 +322,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                 shape: BoxShape.circle,
                                 border: Border.all(color: AppColors.darkBackground, width: 3),
                                 gradient: const LinearGradient(
-                                  colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                  colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                                 ),
                                 image: _avatarFile != null
                                     ? DecorationImage(

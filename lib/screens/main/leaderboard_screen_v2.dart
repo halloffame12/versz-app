@@ -64,7 +64,7 @@ class _LeaderboardScreenV2State extends ConsumerState<LeaderboardScreenV2> with 
         ),
         title: ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
-            colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+            colors: [AppColors.accentLight, AppColors.accentPrimary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ).createShader(bounds),
@@ -217,14 +217,14 @@ class _LeaderboardScreenV2State extends ConsumerState<LeaderboardScreenV2> with 
 
     // Safe lists — only indexed when isTopThree (rank 1-3)
     const topGradients = [
-      [AppColors.accentPurple, AppColors.accentIndigo],
-      [AppColors.accentIndigo, AppColors.accentCyan],
-      [AppColors.accentCyan, AppColors.accentPurple],
+      [AppColors.accentLight, AppColors.accentPrimary],
+      [AppColors.accentPrimary, AppColors.accentPrimaryDark],
+      [AppColors.accentPrimaryDark, AppColors.chromeGold],
     ];
     const topBorderColors = [
-      AppColors.accentPurple,
-      AppColors.accentIndigo,
-      AppColors.accentCyan,
+      AppColors.accentLight,
+      AppColors.accentPrimary,
+      AppColors.accentPrimaryDark,
     ];
     const medals = ['🥇', '🥈', '🥉'];
 
@@ -342,7 +342,7 @@ class _LeaderboardScreenV2State extends ConsumerState<LeaderboardScreenV2> with 
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                  colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),

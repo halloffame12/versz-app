@@ -122,8 +122,8 @@ class _RoomsScreenV2State extends ConsumerState<RoomsScreenV2> with TickerProvid
         elevation: 0,
         automaticallyImplyLeading: false,
         title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [AppColors.accentLight, AppColors.accentPrimary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ).createShader(bounds),
@@ -242,8 +242,8 @@ class _RoomsScreenV2State extends ConsumerState<RoomsScreenV2> with TickerProvid
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                       decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                        gradient: const LinearGradient(
+                                          colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                                         ),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
@@ -301,8 +301,8 @@ class _RoomsScreenV2State extends ConsumerState<RoomsScreenV2> with TickerProvid
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(vertical: 8),
                                       decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                        gradient: const LinearGradient(
+                                          colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                                         ),
                                         borderRadius: BorderRadius.circular(6),
                                       ),

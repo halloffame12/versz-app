@@ -103,7 +103,7 @@ class _ChatDetailScreenV2State extends ConsumerState<ChatDetailScreenV2> {
                             decoration: BoxDecoration(
                               gradient: isSent
                                   ? LinearGradient(
-                                      colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                      colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                                     )
                                   : null,
                               color: isSent ? null : cardBg,

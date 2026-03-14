@@ -29,7 +29,7 @@ class ConnectionsListScreenV2 extends ConsumerWidget {
         automaticallyImplyLeading: false,
         title: ShaderMask(
           shaderCallback: (bounds) => LinearGradient(
-            colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+            colors: [AppColors.accentLight, AppColors.accentPrimary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ).createShader(bounds),
@@ -80,7 +80,7 @@ class ConnectionsListScreenV2 extends ConsumerWidget {
                           height: 56,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                              colors: [AppColors.accentPrimary, AppColors.accentPrimaryDark],
                             ),
                             borderRadius: BorderRadius.circular(28),
                           ),

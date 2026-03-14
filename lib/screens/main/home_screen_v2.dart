@@ -87,8 +87,8 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> with TickerProvider
               automaticallyImplyLeading: false,
               centerTitle: false,
               title: ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: [AppColors.accentPurple, AppColors.accentIndigo, AppColors.accentCyan],
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [AppColors.accentLight, AppColors.accentPrimary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ).createShader(bounds),
@@ -134,8 +134,8 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> with TickerProvider
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [AppColors.accentPurple, AppColors.accentIndigo],
+                                        gradient: const LinearGradient(
+                                          colors: [AppColors.accentLight, AppColors.accentPrimary],
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
@@ -239,35 +239,49 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> with TickerProvider
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      itemCount: debateState.debates.length + (debateState.isLoading ? 1 : 0),
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index == debateState.debates.length) {
-          return const SizedBox(
-            height: 100,
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollEndNotification &&
+            notification.metrics.extentAfter < 300 &&
+            !debateState.isLoadingMore &&
+            debateState.hasMore) {
+          ref.read(debateProvider.notifier).fetchDebates(
+            feedType: debateState.feedType,
+            refresh: false,
           );
         }
-
-        final debate = debateState.debates[index];
-        return AnimatedOpacity(
-          opacity: 1.0,
-          duration: Duration(milliseconds: 300 + (index * 50)),
-          child: SlideTransition(
-            position: Tween<Offset>(begin: const Offset(0.2, 0), end: Offset.zero).animate(
-              CurvedAnimation(
-                parent: ModalRoute.of(context)?.animation ?? AlwaysStoppedAnimation(1.0),
-                curve: Curves.easeOut,
-              ),
-            ),
-            child: DebateCard(debate: debate),
-          ),
-        );
+        return false;
       },
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        itemCount: debateState.debates.length + (debateState.isLoadingMore ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          if (index == debateState.debates.length) {
+            return const SizedBox(
+              height: 100,
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          final debate = debateState.debates[index];
+          return AnimatedOpacity(
+            opacity: 1.0,
+            duration: Duration(milliseconds: 300 + (index * 50)),
+            child: SlideTransition(
+              position: Tween<Offset>(begin: const Offset(0.2, 0), end: Offset.zero).animate(
+                CurvedAnimation(
+                  parent: ModalRoute.of(context)?.animation ?? AlwaysStoppedAnimation(1.0),
+                  curve: Curves.easeOut,
+                ),
+              ),
+              child: DebateCard(debate: debate),
+            ),
+          );
+        },
+      ),
     );
   }
 }

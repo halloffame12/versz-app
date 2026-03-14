@@ -11,6 +11,7 @@ class AppColors {
   static const Color surfaceBackground = Color(0xFFF5E7C6);
   static const Color accentPrimary = Color(0xFFFA8112);
   static const Color accentPrimaryDark = Color(0xFFD96B0C);
+  static const Color accentLight = Color(0xFFFFB565);  // light warm amber for gradients
   static const Color textPrimary = Color(0xFF222222);
   static const Color textSecondary = Color(0xFF5E5548);
   static const Color textMuted = Color(0xFF7A6F5E);
