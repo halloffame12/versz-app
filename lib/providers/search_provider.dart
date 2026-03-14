@@ -129,6 +129,18 @@ class SearchNotifier extends StateNotifier<SearchState> {
     }
   }
 
+  void clearSearch() {
+    state = state.copyWith(
+      query: '',
+      debates: const [],
+      rooms: const [],
+      users: const [],
+      hashtags: const [],
+      isLoading: false,
+      error: null,
+    );
+  }
+
   Future<List<Debate>> _searchDebates(String query) async {
     try {
       final response = await _appwrite.databases.listDocuments(

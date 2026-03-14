@@ -1,24 +1,18 @@
-import 'package:hive_flutter/hive_flutter.dart';
+// Local storage service - Removed Hive dependency
+// Using Riverpod state management for app state persistence
+// For persistent user data, use Appwrite database instead
 
 class HiveService {
+  // Deprecated: Use Riverpod providers and Appwrite database instead
   static const String categoryBoxName = 'categories';
   static const String userBoxName = 'user_data';
   static const String settingsBoxName = 'settings';
 
   Future<void> init() async {
-    await Hive.initFlutter();
-    await Hive.openBox(categoryBoxName);
-    await Hive.openBox(userBoxName);
-    await Hive.openBox(settingsBoxName);
+    // No-op: persistence handled by Riverpod state management
   }
 
-  Box get categoryBox => Hive.box(categoryBoxName);
-  Box get userBox => Hive.box(userBoxName);
-  Box get settingsBox => Hive.box(settingsBoxName);
-
   Future<void> clearAll() async {
-    await categoryBox.clear();
-    await userBox.clear();
-    await settingsBox.clear();
+    // No-op: state managed by Riverpod
   }
 }

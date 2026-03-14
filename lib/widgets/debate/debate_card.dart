@@ -6,6 +6,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../models/debate.dart';
 import '../../providers/debate_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../core/utils/url_utils.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -71,10 +72,10 @@ class DebateCard extends ConsumerWidget {
                         child: CircleAvatar(
                           radius: 18,
                           backgroundColor: AppColors.background,
-                          backgroundImage: creator?.avatarUrl != null 
+                          backgroundImage: isValidNetworkUrl(creator?.avatarUrl)
                               ? CachedNetworkImageProvider(creator!.avatarUrl!) 
                               : null,
-                          child: creator?.avatarUrl == null 
+                          child: !isValidNetworkUrl(creator?.avatarUrl)
                               ? const Icon(Icons.person, size: 20, color: AppColors.textMuted) 
                               : null,
                         ),
@@ -128,7 +129,7 @@ class DebateCard extends ConsumerWidget {
                     ),
                   ),
 
-                if (debate.mediaType == 'image' && debate.mediaUrl != null)
+                if (debate.mediaType == 'image' && isValidNetworkUrl(debate.mediaUrl))
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                     child: ClipRRect(

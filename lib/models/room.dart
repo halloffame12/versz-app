@@ -11,6 +11,7 @@ class Room extends Equatable {
   final String? iconUrl;   // maps to 'avatar'
   final String? bannerUrl; // maps to 'banner'
   final int membersCount;
+  final int debatesCount;
   final DateTime createdAt;
 
   const Room({
@@ -21,6 +22,7 @@ class Room extends Equatable {
     this.iconUrl,
     this.bannerUrl,
     this.membersCount = 0,
+    this.debatesCount = 0,
     required this.createdAt,
   });
 
@@ -33,6 +35,7 @@ class Room extends Equatable {
       iconUrl: map['avatar'],
       bannerUrl: map['banner'],
       membersCount: map['memberCount'] ?? 0,
+      debatesCount: map['debateCount'] ?? map['debate_count'] ?? 0,
       createdAt: DateTime.parse(map['\$createdAt'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -45,15 +48,25 @@ class Room extends Equatable {
       'avatar': iconUrl,
       'banner': bannerUrl,
       'memberCount': membersCount,
+      'debateCount': debatesCount,
     };
   }
 
   @override
   List<Object?> get props => [
-        id, name, description, creatorId, iconUrl, bannerUrl, membersCount, createdAt,
+        id,
+        name,
+        description,
+        creatorId,
+        iconUrl,
+        bannerUrl,
+        membersCount,
+        debatesCount,
+        createdAt,
       ];
 
   int? get memberCount => membersCount > 0 ? membersCount : null;
+  int? get debateCount => debatesCount > 0 ? debatesCount : null;
 }
 
 /// Maps to v3 community_members collection.

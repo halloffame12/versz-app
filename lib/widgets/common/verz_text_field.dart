@@ -9,6 +9,7 @@ class VerzTextField extends StatefulWidget {
   final bool isPassword;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
   final Widget? prefixIcon;
   final int maxLines;
   final bool enabled;
@@ -21,6 +22,7 @@ class VerzTextField extends StatefulWidget {
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
     this.validator,
+    this.onChanged,
     this.prefixIcon,
     this.maxLines = 1,
     this.enabled = true,
@@ -50,6 +52,7 @@ class _VerzTextFieldState extends State<VerzTextField> {
           obscureText: widget.isPassword ? _obscureText : false,
           keyboardType: widget.keyboardType,
           validator: widget.validator,
+          onChanged: widget.onChanged,
           maxLines: widget.maxLines,
           enabled: widget.enabled,
           style: AppTextStyles.bodyMedium,

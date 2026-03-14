@@ -9,6 +9,7 @@ import '../../providers/profile_provider.dart';
 import '../../providers/badge_provider.dart';
 import '../../providers/ui_preferences_provider.dart';
 import '../../models/badge.dart';
+import '../../core/utils/url_utils.dart';
 import '../../widgets/common/verz_button.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -55,6 +56,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final connectionStatus = ref.watch(connectionStatusProvider(targetId));
     final isIncomingPending = ref.watch(connectionPendingIncomingProvider(targetId));
 
+    final bannerUrl = profileState.profile?.coverImage;
+    final validBannerUrl = isValidNetworkUrl(bannerUrl) ? bannerUrl : null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: NestedScrollView(
@@ -66,14 +70,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             backgroundColor: AppColors.background,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary, size: 20),
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.pop(context);
+                } else {
+                  context.go('/home');
+                }
+              },
             ),
             actions: [
               if (isMe)
                 IconButton(
-                  icon: const Icon(Icons.tune_rounded, color: Colors.white),
+                  icon: const Icon(Icons.tune_rounded, color: AppColors.textPrimary),
                   onPressed: _showUiPreferences,
+                ),
+              if (isMe)
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
+                  onPressed: () => context.push('/settings'),
                 ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -81,15 +96,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  profileState.profile?.bannerUrl != null
-                      ? CachedNetworkImage(imageUrl: profileState.profile!.bannerUrl!, fit: BoxFit.cover)
+                  validBannerUrl != null
+                      ? CachedNetworkImage(imageUrl: validBannerUrl, fit: BoxFit.cover)
                       : Container(decoration: const BoxDecoration(gradient: AppColors.premiumGradient)),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black54],
+                        colors: [Colors.transparent, Color(0x1A000000)],
                       ),
                     ),
                   ),
@@ -139,7 +154,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       Text(profileState.profile?.displayName ?? 'User', style: AppTextStyles.h1),
                       Text(
                         '@${profileState.profile?.username ?? 'username'}', 
-                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.accent, fontWeight: FontWeight.bold),
+                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.primaryYellow, fontWeight: FontWeight.bold),
                       ),
                       if (profileState.profile?.bio != null) ...[
                         const SizedBox(height: 16),
@@ -185,7 +200,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             text: 'CONNECTED',
             isFullWidth: false,
             backgroundColor: AppColors.surfaceLight,
-            textColor: Colors.white,
+            textColor: AppColors.textPrimary,
             onPressed: null,
           ),
           const SizedBox(width: 8),
@@ -223,7 +238,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         text: 'PENDING...',
         isFullWidth: false,
         backgroundColor: AppColors.surfaceLight,
-        textColor: Colors.white,
+        textColor: AppColors.textPrimary,
         onPressed: () => notifier.withdrawRequest(targetId),
       );
     }
@@ -236,7 +251,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             text: 'FOLLOWING',
             isFullWidth: false,
             backgroundColor: AppColors.surfaceLight,
-            textColor: Colors.white,
+            textColor: AppColors.textPrimary,
             onPressed: () => notifier.unfollow(targetId),
           ),
           const SizedBox(width: 8),
@@ -269,19 +284,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildAvatar(String? url) {
+    final validAvatarUrl = isValidNetworkUrl(url) ? url : null;
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: AppColors.darkBackground,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: AppColors.accentBlue.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)],
+      ),
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2), width: 2),
+          border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.6), width: 2.5),
         ),
         child: CircleAvatar(
           radius: 50,
           backgroundColor: AppColors.surface,
-          backgroundImage: url != null ? CachedNetworkImageProvider(url) : null,
-          child: url == null ? const Icon(Icons.person, size: 50, color: AppColors.textMuted) : null,
+          backgroundImage: validAvatarUrl != null ? CachedNetworkImageProvider(validAvatarUrl) : null,
+          child: validAvatarUrl == null ? const Icon(Icons.person, size: 50, color: AppColors.textMuted) : null,
         ),
       ),
     );
@@ -291,14 +311,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.darkCardBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.surfaceLight, width: 1),
+        border: Border.all(color: AppColors.darkBorder, width: 1),
+        boxShadow: [BoxShadow(color: AppColors.accentBlue.withValues(alpha: 0.06), blurRadius: 20, spreadRadius: 0)],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildStatItem('XP', '${profile?.reputation ?? 0}'),
+          _buildStatItem('XP', '${profile?.xp ?? 0}'),
           _buildDivider(),
           _buildStatItem('FOLLOWERS', '${profile?.followersCount ?? 0}'),
           _buildDivider(),
@@ -309,7 +330,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildDivider() {
-    return Container(height: 30, width: 1, color: AppColors.surfaceLight);
+    return Container(height: 30, width: 1, color: AppColors.darkBorder);
   }
 
   Widget _buildStatItem(String label, String value) {
@@ -333,8 +354,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.darkCardBg,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.darkBorder, width: 1),
         ),
         child: Center(
           child: Text('NO BADGES YET', style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted)),
@@ -368,9 +390,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.darkCardBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.1), width: 1),
+        border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.25), width: 1),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -392,7 +414,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showUiPreferences() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.darkCardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -413,7 +435,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       subtitle: const Text('Use lighter retry success pulse in direct messages.'),
                       trailing: Switch.adaptive(
                         value: prefs.subtleChatFeedback,
-                        activeTrackColor: AppColors.primary,
+                        activeTrackColor: AppColors.accentTeal,
                         onChanged: (value) {
                           ref.read(uiPreferencesProvider.notifier).setSubtleChatFeedback(value);
                         },
@@ -425,7 +447,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       subtitle: const Text('Speed up retry transitions and success confirmation timing.'),
                       trailing: Switch.adaptive(
                         value: prefs.fastRetryAnimations,
-                        activeTrackColor: AppColors.primary,
+                        activeTrackColor: AppColors.accentTeal,
                         onChanged: (value) {
                           ref.read(uiPreferencesProvider.notifier).setFastRetryAnimations(value);
                         },

@@ -1,133 +1,180 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../core/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/category_provider.dart';
 
 class OnboardingInterestsScreen extends ConsumerStatefulWidget {
   final String username;
-
-  const OnboardingInterestsScreen({super.key, required this.username});
+  const OnboardingInterestsScreen({super.key, this.username = 'user'});
 
   @override
   ConsumerState<OnboardingInterestsScreen> createState() => _OnboardingInterestsScreenState();
 }
 
 class _OnboardingInterestsScreenState extends ConsumerState<OnboardingInterestsScreen> {
-  final Set<String> _selected = <String>{};
+  final List<String> categories = [
+    'politics',
+    'technology',
+    'sports',
+    'science',
+    'entertainment',
+    'philosophy',
+    'health',
+    'education',
+    'business',
+    'culture',
+  ];
+
+  late Set<String> selected;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(categoryProvider.notifier).fetchCategories());
+    selected = {};
   }
 
-  Future<void> _complete() async {
-    await ref.read(authProvider.notifier).completeOnboarding(
-          username: widget.username,
-          interests: _selected.toList(),
-        );
-
-    if (!mounted) return;
-    final state = ref.read(authProvider);
-    if (state.status == AuthStatus.error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: VerszPalette.red,
-          content: Text(state.errorMessage ?? 'Something went wrong. Try again.'),
-        ),
-      );
+  void _continue() async {
+    if (selected.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select at least 3 interests')));
       return;
     }
 
-    context.go('/home');
+    setState(() => _isSaving = true);
+    final authState = ref.read(authProvider);
+    final userId = authState.user?.id;
+
+    if (userId == null || userId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: User profile not loaded. Try logging in again.\nDebug: ${authState.user?.id ?? "null"}'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      setState(() => _isSaving = false);
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Save selected interests
+      await prefs.setStringList('selectedInterests_$userId', selected.toList());
+      
+      // Mark onboarding as complete - THIS IS CRITICAL FOR RETURNING USERS
+      await prefs.setBool('onboardingComplete_$userId', true);
+      await prefs.setBool('onboardingRequired_$userId', false);
+      
+      // Verify flag was set correctly
+      final savedFlag = prefs.getBool('onboardingComplete_$userId');
+      assert(savedFlag == true, 'Onboarding flag failed to persist');
+      
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      // Redirect to home - router will now recognize user as having completed onboarding
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving interests: $e')));
+      setState(() => _isSaving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final categoryState = ref.watch(categoryProvider);
-    final isBusy = categoryState.isLoading || ref.watch(authProvider).status == AuthStatus.loading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: VerszPalette.offWhite,
-      appBar: AppBar(title: const Text('Pick Interests')),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Pick at least 3 interests',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'We use these to personalize your feed.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 20),
-            if (categoryState.isLoading)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else if (categoryState.categories.isEmpty)
-              const Expanded(
-                child: Center(
-                  child: Text('No categories found. Pull to retry.'),
+      backgroundColor: AppColors.darkBackground,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: AppColors.primaryGradientLinear,
                 ),
-              )
-            else
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: categoryState.categories.map((category) {
-                      final isSelected = _selected.contains(category.id);
-                      return FilterChip(
-                        selected: isSelected,
-                        label: Text('${category.emoji} ${category.name}'),
-                        onSelected: (value) {
-                          setState(() {
-                            if (value) {
-                              _selected.add(category.id);
-                            } else {
-                              _selected.remove(category.id);
-                            }
-                          });
-                        },
-                        backgroundColor: Colors.white,
-                        selectedColor: VerszPalette.yellow,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          side: const BorderSide(color: VerszPalette.black, width: 2),
-                        ),
-                        checkmarkColor: VerszPalette.black,
-                      );
-                    }).toList(),
-                  ),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    Text('What Interests You?', style: AppTextStyles.h1.copyWith(color: AppColors.primaryBlack)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Pick at least 3 topics',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.primaryBlack.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 12),
-            Text(
-              'Selected: ${_selected.length}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: (_selected.length >= 3 && !isBusy) ? _complete : null,
-                child: isBusy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Finish'),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkCardBg : AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.darkBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Select Interests', style: AppTextStyles.h2),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${selected.length}/3 minimum selected',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: selected.length >= 3 ? AppColors.successGreen : AppColors.warningOrange,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: categories.map((category) {
+                        final isSelected = selected.contains(category);
+                        return FilterChip(
+                          label: Text(
+                            category[0].toUpperCase() + category.substring(1),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: isSelected ? AppColors.primaryBlack : AppColors.textPrimary,
+                            ),
+                          ),
+                          selected: isSelected,
+                          backgroundColor: isDark ? AppColors.darkCardBg : AppColors.white,
+                          selectedColor: AppColors.primaryYellow,
+                          side: BorderSide(
+                            color: isSelected ? AppColors.primaryYellow : AppColors.darkBorder,
+                            width: 1.5,
+                          ),
+                          onSelected: (val) => setState(() => val ? selected.add(category) : selected.remove(category)),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton(
+                      onPressed: (selected.length >= 3 && !_isSaving) ? _continue : null,
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text("Let's Go!", style: AppTextStyles.buttonLarge),
+                    ),
+                  ],
+                ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

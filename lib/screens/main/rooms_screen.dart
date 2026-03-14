@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/url_utils.dart';
+import '../../models/room.dart';
 import '../../providers/room_provider.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -15,6 +17,13 @@ class RoomsScreen extends ConsumerStatefulWidget {
 }
 
 class _RoomsScreenState extends ConsumerState<RoomsScreen> {
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _bg => AppColors.backgroundColor(_isDark);
+  Color get _cardBg => AppColors.cardBackground(_isDark);
+  Color get _border => AppColors.borderColor(_isDark);
+  Color get _text => AppColors.textColor(_isDark);
+  Color get _muted => AppColors.mutedTextColor(_isDark);
+
   @override
   void initState() {
     super.initState();
@@ -28,27 +37,31 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
     final roomState = ref.watch(roomProvider);
 
     return Scaffold(
+      backgroundColor: _bg,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             expandedHeight: 180,
             pinned: true,
             stretch: true,
-            backgroundColor: AppColors.background.withValues(alpha: 0.8),
+            backgroundColor: _bg,
             elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-              onPressed: () => Navigator.pop(context),
-            ),
+            leading: Navigator.of(context).canPop()
+                ? IconButton(
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: _text, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  )
+                : null,
+            automaticallyImplyLeading: false,
             flexibleSpace: FlexibleSpaceBar(
               stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
               title: Text(
                 'COMMUNITIES',
                 style: AppTextStyles.h2.copyWith(
-                  letterSpacing: 4,
+                  letterSpacing: 2,
                   fontWeight: FontWeight.w900,
                   fontSize: 20,
-                  color: Colors.white,
+                  color: _text,
                 ),
               ),
               centerTitle: true,
@@ -57,15 +70,19 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                 children: [
                   Container(
                     decoration: const BoxDecoration(
-                      gradient: AppColors.premiumGradient,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.accentTeal, AppColors.accentBlue],
+                      ),
                     ),
                   ),
-                  const DecoratedBox(
+                  DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
+                            colors: [Colors.transparent, _bg],
                       ),
                     ),
                   ),
@@ -74,20 +91,20 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.add_box_outlined, color: Colors.white),
-                onPressed: () {},
+                icon: Icon(Icons.add_box_outlined, color: _text),
+                onPressed: _showCreateRoomSheet,
               ),
               const SizedBox(width: 8),
             ],
           ),
         ],
         body: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.background,
+          decoration: BoxDecoration(
+            color: _bg,
             borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
           ),
           child: roomState.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.accentTeal))
           : roomState.rooms.isEmpty
               ? _buildEmptyState()
               : ListView.separated(
@@ -104,20 +121,20 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
     );
   }
 
-  Widget _buildPremiumRoomCard(dynamic room) {
+  Widget _buildPremiumRoomCard(Room room) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: _cardBg,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.1),
+          color: _border,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: AppColors.accentTeal.withValues(alpha: 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -130,14 +147,14 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (room.bannerUrl != null || room.iconUrl != null)
+                if (isValidNetworkUrl(room.bannerUrl) || isValidNetworkUrl(room.iconUrl))
                   SizedBox(
                     height: 100,
                     width: double.infinity,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (room.bannerUrl != null)
+                        if (isValidNetworkUrl(room.bannerUrl))
                           CachedNetworkImage(
                             imageUrl: room.bannerUrl!,
                             fit: BoxFit.cover,
@@ -167,13 +184,16 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                         margin: EdgeInsets.only(top: (room.bannerUrl != null || room.iconUrl != null) ? -40 : 0),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.surface, width: 3),
+                          border: Border.all(color: _cardBg, width: 3),
                           image: room.iconUrl != null
+                              && isValidNetworkUrl(room.iconUrl)
                               ? DecorationImage(image: CachedNetworkImageProvider(room.iconUrl!), fit: BoxFit.cover)
                               : null,
-                          color: AppColors.surfaceLight,
+                          color: _cardBg,
                         ),
-                        child: room.iconUrl == null ? const Icon(Icons.groups_rounded, color: AppColors.primary, size: 28) : null,
+                        child: !isValidNetworkUrl(room.iconUrl)
+                            ? const Icon(Icons.groups_rounded, color: AppColors.accentTeal, size: 28)
+                            : null,
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -203,7 +223,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                                       child: Text('Leave Room'),
                                     ),
                                   ],
-                                  child: const Icon(Icons.more_vert_rounded, color: AppColors.textMuted, size: 20),
+                                  child: Icon(Icons.more_vert_rounded, color: _muted, size: 20),
                                 ),
                               ],
                             ),
@@ -220,8 +240,21 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
                               children: [
                                 _buildStatBadge(Icons.people_alt_rounded, '${room.memberCount} MEMBERS'),
                                 const SizedBox(width: 8),
-                                _buildStatBadge(Icons.forum_rounded, '${room.debateCount} DEBATES'),
+                                _buildStatBadge(Icons.forum_rounded, '${room.debateCount ?? 0} DEBATES'),
                               ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => context.push('/chat/${room.id}', extra: room),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.accentTeal,
+                                  side: const BorderSide(color: AppColors.accentTeal),
+                                ),
+                                icon: const Icon(Icons.forum_rounded, size: 16),
+                                label: const Text('Open Room Chat'),
+                              ),
                             ),
                           ],
                         ),
@@ -241,13 +274,14 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight.withValues(alpha: 0.3),
+        color: _cardBg,
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _border, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: AppColors.primary),
+          Icon(icon, size: 12, color: AppColors.accentTeal),
           const SizedBox(width: 4),
           Text(text, style: AppTextStyles.labelSmall.copyWith(fontSize: 9, fontWeight: FontWeight.bold)),
         ],
@@ -270,7 +304,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: _cardBg,
         title: Text('Leave Room', style: AppTextStyles.h3),
         content: Text('Are you sure you want to leave ${room.name}?',
             style: AppTextStyles.bodyMedium),
@@ -280,9 +314,17 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // TODO: Implement leave room functionality
+              await ref.read(roomProvider.notifier).leaveRoom(room.id);
+              if (!mounted) return;
+              final error = ref.read(roomProvider).error;
+              ScaffoldMessenger.of(this.context).showSnackBar(
+                SnackBar(
+                  content: Text(error ?? 'You left ${room.name}.'),
+                  backgroundColor: error == null ? AppColors.accentTeal : AppColors.error,
+                ),
+              );
             },
             child: const Text('Leave', style: TextStyle(color: Colors.red)),
           ),
@@ -302,10 +344,10 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.surfaceLight.withValues(alpha: 0.1),
-                border: Border.all(color: AppColors.surfaceLight.withValues(alpha: 0.2), width: 2),
+                color: AppColors.accentTeal.withValues(alpha: 0.07),
+                border: Border.all(color: AppColors.accentTeal.withValues(alpha: 0.3), width: 2),
               ),
-              child: const Icon(Icons.groups_rounded, size: 64, color: AppColors.textMuted),
+              child: const Icon(Icons.groups_rounded, size: 64, color: AppColors.accentTeal),
             ),
             const SizedBox(height: 24),
             Text('No Communities Yet', style: AppTextStyles.h3),
@@ -317,11 +359,11 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.explore_rounded, color: Colors.black),
-              label: Text('DISCOVER', style: AppTextStyles.labelMedium.copyWith(color: Colors.black, fontWeight: FontWeight.bold)),
+              onPressed: _showCreateRoomSheet,
+              icon: const Icon(Icons.explore_rounded, color: AppColors.primaryBlack),
+              label: Text('DISCOVER', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primaryBlack, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.primaryYellow,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
@@ -329,6 +371,85 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showCreateRoomSheet() {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Create Community', style: AppTextStyles.h3),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Community name'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descController,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+
+                    final notifier = ref.read(roomProvider.notifier);
+                    final userId = await notifier.currentUserId();
+                    if (userId == null) return;
+
+                    await notifier.createRoom(
+                      Room(
+                        id: '',
+                        name: name,
+                        description: descController.text.trim().isEmpty
+                            ? null
+                            : descController.text.trim(),
+                        creatorId: userId,
+                        createdAt: DateTime.now(),
+                      ),
+                    );
+
+                    if (!mounted) return;
+                    Navigator.of(this.context).pop();
+                    final error = ref.read(roomProvider).error;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      SnackBar(
+                        content: Text(error ?? 'Community created successfully.'),
+                        backgroundColor: error == null ? AppColors.accentTeal : AppColors.error,
+                      ),
+                    );
+                  },
+                  child: const Text('Create'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

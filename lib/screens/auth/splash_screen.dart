@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../widgets/common/verz_logo.dart';
+import '../../core/theme/app_text_styles.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -12,35 +13,57 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProviderStateMixin {
+  static const String _brand = 'VERSZ';
+  late final AnimationController _pulseController;
+  late final AnimationController _barController;
+  bool _showTagline = false;
+
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _barController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat();
     _init();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _barController.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
     try {
-      // Wait for a minimum duration to show the logo
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(milliseconds: 850));
+      if (mounted) {
+        setState(() => _showTagline = true);
+      }
+
+      await Future.delayed(const Duration(milliseconds: 950));
       
-      // Check if session exists
-      await ref.read(authProvider.notifier).checkSession();
+      await ref.read(authProvider.notifier).checkAuthStatus();
       
       if (mounted) {
         final authState = ref.read(authProvider);
-        if (authState.status == AuthStatus.authenticated) {
-          if (authState.needsOnboarding) {
-            context.go('/onboarding/username');
-          } else {
-            context.go('/home');
-          }
+        if (authState.isLoggedIn && authState.user != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final key = 'onboardingComplete_${authState.user!.id}';
+          final onboardingDone = prefs.getBool(key) ?? false;
+          if (!mounted) return;
+          context.go(onboardingDone ? '/home' : '/onboarding/username');
         } else {
           context.go('/login');
         }
       }
     } catch (e) {
-      // If session check fails, go to login
       if (mounted) {
         context.go('/login');
       }
@@ -50,14 +73,96 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: AppColors.darkGradient,
-        ),
-        child: const Center(
-          child: VerzLogo(),
+      backgroundColor: AppColors.voidBlack,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      final scale = 1 + (_pulseController.value * 0.04);
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(_brand.length, (index) {
+                        final begin = (index * 0.12).clamp(0.0, 1.0);
+                        final end = (begin + 0.35).clamp(0.0, 1.0);
+                        final opacity = CurvedAnimation(
+                          parent: _pulseController,
+                          curve: Interval(begin, end, curve: Curves.easeOut),
+                        ).value;
+
+                        return Opacity(
+                          opacity: opacity,
+                          child: Transform.translate(
+                            offset: Offset(0, (1 - opacity) * 8),
+                            child: Text(
+                              _brand[index],
+                              style: AppTextStyles.displayXL.copyWith(
+                                fontSize: 64,
+                                color: AppColors.electricYellow,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 400),
+                    opacity: _showTagline ? 1 : 0,
+                    child: Text(
+                      'Pick a Side.',
+                      style: AppTextStyles.bodyL.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.mutedGray,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Align(
+              alignment: const Alignment(0, 0.68),
+              child: SizedBox(
+                width: 120,
+                height: 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    children: [
+                      Container(color: AppColors.darkBorder),
+                      AnimatedBuilder(
+                        animation: _barController,
+                        builder: (context, child) {
+                          final x = (_barController.value * 140) - 30;
+                          return Transform.translate(
+                            offset: Offset(x, 0),
+                            child: child,
+                          );
+                        },
+                        child: Container(
+                          width: 30,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: AppColors.electricYellow,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

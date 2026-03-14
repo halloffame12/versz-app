@@ -7,6 +7,7 @@ import '../core/services/realtime_service.dart';
 import '../core/constants/appwrite_constants.dart';
 import '../models/message.dart' as model;
 import '../models/conversation.dart';
+import '../models/user_account.dart';
 import 'package:appwrite/appwrite.dart';
 
 Map<String, int> _decodeUnreadCounts(dynamic raw) {
@@ -532,6 +533,8 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
   final RealtimeService _realtime;
   String? _currentUserId;
   Timer? _refreshDebounce;
+  bool _isRefreshing = false;
+  bool _refreshQueued = false;
 
   ConversationsListNotifier(this._appwrite)
       : _realtime = RealtimeService(_appwrite.client),
@@ -543,7 +546,7 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
   String get currentUserId => _currentUserId ?? '';
 
   Future<void> fetchConversations() async {
-    await _loadConversations();
+    await _refreshConversations();
   }
 
   void _subscribeToConversationUpdates() {
@@ -552,16 +555,61 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
       'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.messagesCollection}.documents',
     ]);
 
-    _realtime.stream.listen((_) {
+    _realtime.stream.listen((event) {
+      final eventNames = event.events.join(' ');
+      final isChatEvent = eventNames.contains('.collections.${AppwriteConstants.chats}.');
+      final isMessageEvent = eventNames.contains('.collections.${AppwriteConstants.messagesCollection}.');
+
+      if (!isChatEvent && !isMessageEvent) {
+        return;
+      }
+
+      if (isChatEvent && _currentUserId != null) {
+        final rawParticipants = event.payload['participants'];
+        final participants = <String>[];
+        if (rawParticipants is List) {
+          participants.addAll(rawParticipants.map((p) => p.toString()));
+        } else if (rawParticipants is String) {
+          try {
+            final decoded = jsonDecode(rawParticipants);
+            if (decoded is List) {
+              participants.addAll(decoded.map((p) => p.toString()));
+            }
+          } catch (_) {
+            // Ignore parse failures and continue with a refresh.
+          }
+        }
+
+        if (participants.isNotEmpty && !participants.contains(_currentUserId)) {
+          return;
+        }
+      }
+
       _scheduleRefresh();
     });
   }
 
   void _scheduleRefresh() {
     _refreshDebounce?.cancel();
-    _refreshDebounce = Timer(const Duration(milliseconds: 450), () {
-      _loadConversations();
+    _refreshDebounce = Timer(const Duration(milliseconds: 300), () {
+      _refreshConversations();
     });
+  }
+
+  Future<void> _refreshConversations() async {
+    if (_isRefreshing) {
+      _refreshQueued = true;
+      return;
+    }
+
+    _isRefreshing = true;
+    await _loadConversations();
+    _isRefreshing = false;
+
+    if (_refreshQueued) {
+      _refreshQueued = false;
+      await _refreshConversations();
+    }
   }
 
   Future<void> _loadConversations() async {
@@ -605,6 +653,10 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
   }
 
   Future<void> startConversation(String otherUserId) async {
+    await ensureConversationWith(otherUserId);
+  }
+
+  Future<String?> ensureConversationWith(String otherUserId) async {
     try {
       final user = await _appwrite.account.get();
 
@@ -630,7 +682,7 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
 
       if (connectionRes.documents.isEmpty) {
         state = state.copyWith(error: 'You can only message connected users.');
-        return;
+        return null;
       }
 
       // Check if chat/conversation already exists.
@@ -645,11 +697,11 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
           try { final d = jsonDecode(rawP); if (d is List) ps = d.map((e) => e.toString()).toList(); } catch (_) {}
         }
         if (ps.contains(user.$id) && ps.contains(otherUserId)) {
-          return;
+          return doc.$id;
         }
       }
 
-      await _appwrite.databases.createDocument(
+      final created = await _appwrite.databases.createDocument(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.chats,
         documentId: ID.unique(),
@@ -664,9 +716,49 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
         },
       );
 
-      await _loadConversations();
+      await _refreshConversations();
+      return created.$id;
     } catch (e) {
       state = state.copyWith(error: e.toString());
+      return null;
+    }
+  }
+
+  Future<List<UserAccount>> searchUsers(String query, {int limit = 20}) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+
+    try {
+      final me = await _appwrite.account.get();
+      final results = <String, UserAccount>{};
+
+      Future<void> collect(String field) async {
+        final response = await _appwrite.databases.listDocuments(
+          databaseId: AppwriteConstants.databaseId,
+          collectionId: AppwriteConstants.usersCollection,
+          queries: [
+            Query.search(field, q),
+            Query.limit(limit),
+          ],
+        );
+
+        for (final doc in response.documents) {
+          final user = UserAccount.fromMap(doc.data);
+          if (user.id.isEmpty || user.id == me.$id) continue;
+          results[user.id] = user;
+        }
+      }
+
+      try {
+        await collect('display_name');
+      } catch (_) {
+        // Field may not exist in some legacy schema variants.
+      }
+
+      await collect('username');
+      return results.values.toList();
+    } catch (_) {
+      return [];
     }
   }
 

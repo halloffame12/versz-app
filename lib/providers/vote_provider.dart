@@ -43,6 +43,35 @@ class VoteNotifier extends StateNotifier<VoteState> {
     _loadUserVote();
   }
 
+  Future<List<dynamic>> _findExistingVotes(String userId) async {
+    try {
+      final modern = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.votesCollection,
+        queries: [
+          Query.equal('targetType', 'debate'),
+          Query.equal('targetId', targetId),
+          Query.equal('userId', userId),
+          Query.limit(1),
+        ],
+      );
+      if (modern.documents.isNotEmpty) return modern.documents;
+    } catch (_) {
+      // Fall through to legacy query.
+    }
+
+    final legacy = await _appwrite.databases.listDocuments(
+      databaseId: AppwriteConstants.databaseId,
+      collectionId: AppwriteConstants.votesCollection,
+      queries: [
+        Query.equal('debateId', targetId),
+        Query.equal('userId', userId),
+        Query.limit(1),
+      ],
+    );
+    return legacy.documents;
+  }
+
   Future<void> _loadUserVote() async {
     if (targetType != 'debate') {
       state = state.copyWith(userVote: null);
@@ -51,18 +80,13 @@ class VoteNotifier extends StateNotifier<VoteState> {
 
     try {
       final user = await _appwrite.account.get();
-      final response = await _appwrite.databases.listDocuments(
-        databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.votesCollection,
-        queries: [
-          Query.equal('debateId', targetId),
-          Query.equal('userId', user.$id),
-        ],
-      );
+      final docs = await _findExistingVotes(user.$id);
 
-      if (response.documents.isNotEmpty) {
-        final side = (response.documents.first.data['side'] ?? '').toString();
-        final value = side == 'agree' ? 1 : side == 'disagree' ? -1 : 0;
+      if (docs.isNotEmpty) {
+        final data = docs.first.data;
+        final rawValue = data['value'];
+        final side = (data['side'] ?? '').toString();
+        final value = rawValue is int ? rawValue : (side == 'agree' ? 1 : side == 'disagree' ? -1 : 0);
         state = state.copyWith(userVote: value);
       }
     } catch (e) {
@@ -85,19 +109,13 @@ class VoteNotifier extends StateNotifier<VoteState> {
       final side = value == 1 ? 'agree' : 'disagree';
 
       // Check if user already voted
-      final existingVote = await _appwrite.databases.listDocuments(
-        databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.votesCollection,
-        queries: [
-          Query.equal('debateId', targetId),
-          Query.equal('userId', user.$id),
-        ],
-      );
+      final existingVoteDocs = await _findExistingVotes(user.$id);
 
-      if (existingVote.documents.isNotEmpty) {
-        final voteDoc = existingVote.documents.first;
+      if (existingVoteDocs.isNotEmpty) {
+        final voteDoc = existingVoteDocs.first;
         final oldSide = (voteDoc.data['side'] ?? '').toString();
-        final oldValue = oldSide == 'agree' ? 1 : -1;
+        final oldRawValue = voteDoc.data['value'];
+        final oldValue = oldRawValue is int ? oldRawValue : (oldSide == 'agree' ? 1 : -1);
         
         if (oldValue == value) {
           // Toggle off
@@ -114,7 +132,12 @@ class VoteNotifier extends StateNotifier<VoteState> {
             databaseId: AppwriteConstants.databaseId,
             collectionId: AppwriteConstants.votesCollection,
             documentId: voteDoc.$id,
-            data: {'side': side},
+            data: {
+              'side': side,
+              'value': value,
+              'targetType': 'debate',
+              'targetId': targetId,
+            },
           );
           await _updateCounts(oldValue, increment: false);
           await _updateCounts(value, increment: true);
@@ -128,6 +151,9 @@ class VoteNotifier extends StateNotifier<VoteState> {
             documentId: ID.unique(),
             data: {
               'userId': user.$id,
+              'targetType': 'debate',
+              'targetId': targetId,
+              'value': value,
               'debateId': targetId,
               'side': side,
               'createdAt': DateTime.now().toIso8601String(),

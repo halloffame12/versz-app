@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/url_utils.dart';
 import '../../models/debate.dart';
 import '../../models/comment.dart';
 import '../../providers/comment_provider.dart';
@@ -22,36 +23,89 @@ class DebateDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<DebateDetailScreen> createState() => _DebateDetailScreenState();
 }
 
-class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
+class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> with TickerProviderStateMixin {
   final TextEditingController _commentController = TextEditingController();
   int _commentTabIndex = 0;
+  late int _displayUpvotes;
+  late int _displayDownvotes;
+  int? _lastVote;
+  late AnimationController _voteAnimationController;
+  late Animation<double> _voteButtonScale;
+  bool _isCommentPosting = false;
+  String? _commentPostError;
 
   @override
   void initState() {
     super.initState();
+    _displayUpvotes = widget.debate.upvotes;
+    _displayDownvotes = widget.debate.downvotes;
+    
+    // Setup vote button animation
+    _voteAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _voteButtonScale = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _voteAnimationController, curve: Curves.easeInOut),
+    );
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(commentProvider(widget.debate.id).notifier).fetchComments();
       ref.read(viewsProvider).trackDebateView(widget.debate.id);
       // Vote provider is initialized automatically in constructor
+    });
+
+    ref.listenManual<VoteState>(voteProvider('debate:${widget.debate.id}'), (prev, next) {
+      final oldVote = _lastVote;
+      final newVote = next.userVote;
+      if (oldVote == newVote) return;
+
+      setState(() {
+        if (oldVote == 1) _displayUpvotes = (_displayUpvotes - 1).clamp(0, 1 << 30);
+        if (oldVote == -1) _displayDownvotes = (_displayDownvotes - 1).clamp(0, 1 << 30);
+        if (newVote == 1) _displayUpvotes = (_displayUpvotes + 1).clamp(0, 1 << 30);
+        if (newVote == -1) _displayDownvotes = (_displayDownvotes + 1).clamp(0, 1 << 30);
+        _lastVote = newVote;
+      });
     });
   }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _voteAnimationController.dispose();
     super.dispose();
   }
 
   void _postComment() async {
-    if (_commentController.text.trim().isNotEmpty) {
+    if (_commentController.text.trim().isEmpty) return;
+    
+    setState(() {
+      _isCommentPosting = true;
+      _commentPostError = null;
+    });
+    
+    try {
       final side = _commentTabIndex == 0 ? 'agree' : 'disagree';
       await ref.read(commentProvider(widget.debate.id).notifier).postComment(
-            _commentController.text.trim(),
-            side: side,
-          );
+        _commentController.text.trim(),
+        side: side,
+      );
       if (!mounted) return;
+      
+      setState(() {
+        _isCommentPosting = false;
+        _commentPostError = null;
+      });
+      
       _commentController.clear();
       FocusScope.of(context).unfocus();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isCommentPosting = false;
+        _commentPostError = 'Failed to post comment: ${e.toString()}';
+      });
     }
   }
 
@@ -70,25 +124,30 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
     final activeComments = _commentTabIndex == 0 ? agreeComments : disagreeComments;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.darkBackground,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             expandedHeight: widget.debate.mediaUrl != null ? 300 : 120,
             pinned: true,
             stretch: true,
-            backgroundColor: AppColors.background,
+            backgroundColor: AppColors.darkCardBg,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              icon: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.textPrimary, size: 20),
               onPressed: () => Navigator.pop(context),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
+              stretchModes: const [
+                StretchMode.zoomBackground,
+                StretchMode.blurBackground
+              ],
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (widget.debate.mediaType == 'image' && widget.debate.mediaUrl != null)
+                  if (widget.debate.mediaType == 'image' &&
+                      isValidNetworkUrl(widget.debate.mediaUrl))
                     CachedNetworkImage(
                       imageUrl: widget.debate.mediaUrl!,
                       fit: BoxFit.cover,
@@ -96,7 +155,7 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
                   else
                     Container(
                       decoration: const BoxDecoration(
-                        gradient: AppColors.premiumGradient,
+                        gradient: AppColors.primaryGradientLinear,
                       ),
                     ),
                   // Dark gradient overlay for readability
@@ -105,7 +164,7 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black87],
+                        colors: [Colors.transparent, Color(0x26000000)],
                       ),
                     ),
                   ),
@@ -114,30 +173,46 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.share_outlined, color: Colors.white),
+                icon: const Icon(Icons.share_outlined,
+                    color: AppColors.textPrimary),
                 onPressed: () {},
               ),
               Consumer(
                 builder: (context, ref, child) {
                   final isSaved = ref.watch(
-                    savedDebatesProvider.select((state) => state.savedDebates.any((d) => d.id == widget.debate.id))
+                    savedDebatesProvider.select((state) =>
+                        state.savedDebates.any((d) => d.id == widget.debate.id)),
                   );
                   return IconButton(
-                    icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border_rounded, color: isSaved ? AppColors.accent : Colors.white),
+                    icon: Icon(
+                      isSaved
+                          ? Icons.bookmark
+                          : Icons.bookmark_border_rounded,
+                      color: isSaved
+                          ? AppColors.accentOrange
+                          : AppColors.textPrimary,
+                    ),
                     onPressed: () {
                       if (isSaved) {
-                        ref.read(savedDebatesProvider.notifier).unsaveDebate(widget.debate.id);
+                        ref
+                            .read(savedDebatesProvider.notifier)
+                            .unsaveDebate(widget.debate.id);
                       } else {
-                        ref.read(savedDebatesProvider.notifier).saveDebate(widget.debate.id);
+                        ref
+                            .read(savedDebatesProvider.notifier)
+                            .saveDebate(widget.debate.id);
                       }
                     },
                   );
                 },
               ),
               PopupMenuButton(
-                icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+                icon: const Icon(Icons.more_vert_rounded,
+                    color: AppColors.textPrimary),
                 itemBuilder: (context) => [
-                  PopupMenuItem(child: const Text('Report'), onTap: () => _showReportDialog(context)),
+                  PopupMenuItem(
+                      child: const Text('Report'),
+                      onTap: () => _showReportDialog(context)),
                 ],
               ),
             ],
@@ -145,37 +220,46 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
         ],
         body: Container(
           decoration: const BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+            color: AppColors.darkBackground,
+            borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(32),
+                topRight: Radius.circular(32)),
           ),
           child: Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildCreatorHeader(),
                       const SizedBox(height: 24),
-                      Text(widget.debate.title, style: AppTextStyles.h1.copyWith(fontSize: 28)),
+                      Text(widget.debate.title,
+                          style: AppTextStyles.h1.copyWith(
+                            fontSize: 28,
+                            color: AppColors.textPrimary,
+                          )),
                       if (widget.debate.description != null) ...[
                         const SizedBox(height: 16),
                         Text(
                           widget.debate.description!,
-                          style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary, height: 1.6),
+                          style: AppTextStyles.bodyLarge.copyWith(
+                              color: AppColors.textSecondary, height: 1.6),
                         ),
                       ],
                       const SizedBox(height: 32),
                       _buildAdvancedVoteSection(voteState),
-                      if (widget.debate.aiSummary != null && widget.debate.aiSummary!.trim().isNotEmpty) ...[
+                      if (widget.debate.aiSummary != null &&
+                          widget.debate.aiSummary!.trim().isNotEmpty) ...[
                         const SizedBox(height: 24),
                         _buildAiVerdictCard(),
                       ],
                       const SizedBox(height: 32),
                       Row(
                         children: [
-                          Text('COMMENTS', style: AppTextStyles.labelMedium.copyWith(letterSpacing: 2)),
+                          Text('COMMENTS', style: AppTextStyles.labelMedium.copyWith(letterSpacing: 1.2)),
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -227,11 +311,13 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
           padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.accent.withValues(alpha: 0.3), width: 2),
+            border: Border.all(
+                color: AppColors.accentBlue.withValues(alpha: 0.45), width: 2),
+            boxShadow: [BoxShadow(color: AppColors.accentBlue.withValues(alpha: 0.2), blurRadius: 8, spreadRadius: 0)],
           ),
           child: const CircleAvatar(
             radius: 22,
-            backgroundColor: AppColors.surface,
+            backgroundColor: AppColors.darkCardBg,
             child: Icon(Icons.person, color: AppColors.textMuted),
           ),
         ),
@@ -239,8 +325,13 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('User ${widget.debate.creatorId.substring(0, 8)}', style: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w800)),
-            Text(timeago.format(widget.debate.createdAt).toUpperCase(), style: AppTextStyles.labelSmall.copyWith(fontSize: 9)),
+            Text('User ${widget.debate.creatorId.substring(0, 8)}',
+                style: AppTextStyles.labelLarge.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary)),
+            Text(timeago.format(widget.debate.createdAt).toUpperCase(),
+                style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textSecondary)),
           ],
         ),
         const Spacer(),
@@ -253,19 +344,22 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.1),
+        color: AppColors.errorRed.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+        border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+                color: AppColors.errorRed, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
-          Text('LIVE', style: AppTextStyles.labelSmall.copyWith(color: AppColors.error, fontWeight: FontWeight.w900, fontSize: 10)),
+          Text('LIVE',
+              style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.errorRed, fontWeight: FontWeight.w900)),
         ],
       ),
     );
@@ -273,45 +367,80 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
 
   Widget _buildAdvancedVoteSection(VoteState voteState) {
     final userVote = voteState.userVote;
-    final total = widget.debate.upvotes + widget.debate.downvotes;
-    final agreePercent = total == 0 ? 0.5 : widget.debate.upvotes / total;
+    final total = _displayUpvotes + _displayDownvotes;
+    final agreePercent = total == 0 ? 0.5 : _displayUpvotes / total;
 
     return Column(
       children: [
         Row(
           children: [
             Expanded(
-              child: VerzButton(
-                text: 'AGREE',
-                isOutlined: userVote != 1,
-                backgroundColor: AppColors.primary,
-                onPressed: voteState.isLoading 
-                  ? null 
-                  : () => ref.read(voteProvider('debate:${widget.debate.id}').notifier).castVote(1),
+              child: ScaleTransition(
+                scale: _voteButtonScale,
+                child: VerzButton(
+                  text: 'AGREE',
+                  isOutlined: userVote != 1,
+                  backgroundColor: AppColors.accentTeal,
+                  onPressed: voteState.isLoading
+                      ? null
+                      : () {
+                          _voteAnimationController.forward().then((_) {
+                            _voteAnimationController.reverse();
+                          });
+                          ref
+                              .read(voteProvider('debate:${widget.debate.id}')
+                                  .notifier)
+                              .castVote(1);
+                        },
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: VerzButton(
-                text: 'DISAGREE',
-                isOutlined: userVote != -1,
-                backgroundColor: AppColors.error,
-                onPressed: voteState.isLoading 
-                  ? null 
-                  : () => ref.read(voteProvider('debate:${widget.debate.id}').notifier).castVote(-1),
+              child: ScaleTransition(
+                scale: _voteButtonScale,
+                child: VerzButton(
+                  text: 'DISAGREE',
+                  isOutlined: userVote != -1,
+                  backgroundColor: AppColors.errorRed,
+                  onPressed: voteState.isLoading
+                      ? null
+                      : () {
+                          _voteAnimationController.forward().then((_) {
+                            _voteAnimationController.reverse();
+                          });
+                          ref
+                              .read(voteProvider('debate:${widget.debate.id}')
+                                  .notifier)
+                              .castVote(-1);
+                        },
+                ),
               ),
             ),
           ],
         ),
+        if (voteState.error != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            voteState.error!,
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.errorRed),
+          ),
+        ],
         const SizedBox(height: 32),
-        // Premium Progress Bar
+        // Professional vote visualization
         Column(
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${(agreePercent * 100).toInt()}% AGREE', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textPrimary)),
-                Text('${((1 - agreePercent) * 100).toInt()}% DISAGREE', style: AppTextStyles.labelLarge.copyWith(color: AppColors.error)),
+                Text('${(agreePercent * 100).toInt()}% AGREE',
+                    style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.accentTeal,
+                        fontWeight: FontWeight.w600)),
+                Text('${((1 - agreePercent) * 100).toInt()}% DISAGREE',
+                    style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.errorRed,
+                        fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 12),
@@ -319,7 +448,7 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
               height: 12,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.2),
+                color: AppColors.errorRed.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Stack(
@@ -328,10 +457,14 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
                     widthFactor: agreePercent,
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Colors.white, Color(0xFFEEEEEE)]),
+                        color: AppColors.accentTeal,
                         borderRadius: BorderRadius.circular(6),
                         boxShadow: [
-                          BoxShadow(color: Colors.white.withValues(alpha: 0.2), blurRadius: 10, spreadRadius: 2),
+                          BoxShadow(
+                              color: AppColors.accentTeal
+                                  .withValues(alpha: 0.25),
+                              blurRadius: 10,
+                              spreadRadius: 1),
                         ],
                       ),
                     ),
@@ -383,14 +516,13 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
                             comment.side!.toUpperCase(),
                             style: AppTextStyles.labelSmall.copyWith(
                               color: comment.side == 'agree' ? AppColors.success : AppColors.error,
-                              fontSize: 9,
                             ),
                           ),
                         ),
                       ],
                     ],
                   ),
-                  Text(timeago.format(comment.createdAt), style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted, fontSize: 10)),
+                  Text(timeago.format(comment.createdAt), style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted)),
                 ],
               ),
             ),
@@ -458,8 +590,9 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.darkSurface,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.darkBorder, width: 1),
       ),
       child: Row(
         children: [
@@ -501,27 +634,28 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
   Widget _buildAiVerdictCard() {
     final side = widget.debate.winningSide ?? 'tie';
     final sideColor = switch (side) {
-      'agree' => AppColors.success,
-      'disagree' => AppColors.error,
-      _ => AppColors.warning,
+      'agree' => AppColors.accentTeal,
+      'disagree' => AppColors.errorRed,
+      _ => AppColors.primaryYellow,
     };
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.15),
+        color: AppColors.primaryYellow.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.45), width: 1.2),
+        border: Border.all(color: AppColors.primaryYellow.withValues(alpha: 0.4), width: 1.2),
+        boxShadow: [BoxShadow(color: AppColors.primaryYellow.withValues(alpha: 0.08), blurRadius: 16, spreadRadius: 0)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: AppColors.warning, size: 18),
+              const Icon(Icons.auto_awesome, color: AppColors.primaryYellow, size: 18),
               const SizedBox(width: 8),
-              Text('AI VERDICT', style: AppTextStyles.labelMedium.copyWith(color: AppColors.warning, fontWeight: FontWeight.bold)),
+              Text('AI VERDICT', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primaryYellow, fontWeight: FontWeight.bold)),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -545,29 +679,87 @@ class _DebateDetailScreenState extends ConsumerState<DebateDetailScreen> {
   }
 
   Widget _buildGlassCommentInput() {
+    final isTextEmpty = _commentController.text.trim().isEmpty;
+    
     return Container(
       padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       decoration: BoxDecoration(
-        color: AppColors.background,
-        border: Border(top: BorderSide(color: AppColors.surfaceLight.withValues(alpha: 0.3))),
+        color: AppColors.darkCardBg,
+        border: Border(top: BorderSide(color: AppColors.darkBorder)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: VerzTextField(
-              label: '',
-              hintText: _commentTabIndex == 0 ? 'Argue for AGREE...' : 'Argue for DISAGREE...',
-              controller: _commentController,
-              maxLines: 1,
+          if (_commentPostError != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.errorRed.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: AppColors.errorRed, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _commentPostError!,
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.errorRed),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => setState(() => _commentPostError = null),
+                    child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-            child: IconButton(
-              onPressed: _postComment,
-              icon: const Icon(Icons.send_rounded, color: Colors.black, size: 20),
-            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: VerzTextField(
+                  label: '',
+                  hintText: _isCommentPosting
+                      ? 'Posting...'
+                      : (_commentTabIndex == 0 ? 'Argue for AGREE...' : 'Argue for DISAGREE...'),
+                  controller: _commentController,
+                  maxLines: 1,
+                  enabled: !_isCommentPosting,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: isTextEmpty || _isCommentPosting
+                      ? AppColors.primaryYellow.withValues(alpha: 0.5)
+                      : AppColors.primaryYellow,
+                  shape: BoxShape.circle,
+                  boxShadow: isTextEmpty || _isCommentPosting
+                      ? []
+                      : [BoxShadow(color: AppColors.primaryYellow.withValues(alpha: 0.35), blurRadius: 14, spreadRadius: 0)],
+                ),
+                child: IconButton(
+                  onPressed: (isTextEmpty || _isCommentPosting) ? null : _postComment,
+                  icon: _isCommentPosting
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlack.withValues(alpha: 0.7)),
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, color: AppColors.primaryBlack, size: 20),
+                ),
+              ),
+            ],
           ),
         ],
       ),

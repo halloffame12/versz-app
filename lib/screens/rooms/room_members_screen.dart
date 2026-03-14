@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/url_utils.dart';
 import '../../models/room.dart';
 import '../../providers/room_members_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -17,6 +18,14 @@ class RoomMembersScreen extends ConsumerStatefulWidget {
 }
 
 class _RoomMembersScreenState extends ConsumerState<RoomMembersScreen> {
+  final TextEditingController _inviteSearchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _inviteSearchController.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,10 +96,10 @@ class _RoomMembersScreenState extends ConsumerState<RoomMembersScreen> {
             CircleAvatar(
               radius: 24,
               backgroundColor: AppColors.surface,
-              backgroundImage: member.avatarUrl != null
+                backgroundImage: isValidNetworkUrl(member.avatarUrl)
                   ? CachedNetworkImageProvider(member.avatarUrl!)
                   : null,
-              child: member.avatarUrl == null
+                child: !isValidNetworkUrl(member.avatarUrl)
                   ? Text(member.displayName[0].toUpperCase(),
                       style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary))
                   : null,
@@ -129,10 +138,9 @@ class _RoomMembersScreenState extends ConsumerState<RoomMembersScreen> {
                     style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
                   ),
                   Text(
-                    'Joined ${member.joinedAt != null ? _formatDate(member.joinedAt) : 'recently'}',
+                    '${member.followersCount} followers',
                     style: AppTextStyles.labelSmall.copyWith(
                       color: AppColors.textMuted,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -159,19 +167,104 @@ class _RoomMembersScreenState extends ConsumerState<RoomMembersScreen> {
   }
 
   void _showInviteDialog(BuildContext context) {
+    List<dynamic> results = const [];
+    bool isLoading = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text('Invite Members', style: AppTextStyles.h3),
-        content: Text('Invite functionality will be implemented here.',
-            style: AppTextStyles.bodyMedium),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          Future<void> runSearch(String query) async {
+            setModalState(() => isLoading = true);
+            final users = await ref
+                .read(roomMembersProvider(widget.room.id).notifier)
+                .searchUsers(query);
+            if (!mounted) return;
+            setModalState(() {
+              results = users;
+              isLoading = false;
+            });
+          }
+
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: Text('Invite Members', style: AppTextStyles.h3),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _inviteSearchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Search users',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: runSearch,
+                  ),
+                  const SizedBox(height: 12),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    )
+                  else if (results.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        _inviteSearchController.text.trim().isEmpty
+                            ? 'Type a username to find people'
+                            : 'No users found',
+                        style: AppTextStyles.bodySmall,
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 280),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: results.length,
+                        itemBuilder: (context, index) {
+                          final user = results[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundImage: isValidNetworkUrl(user.avatarUrl)
+                                  ? CachedNetworkImageProvider(user.avatarUrl!)
+                                  : null,
+                              child: !isValidNetworkUrl(user.avatarUrl)
+                                  ? Text(user.displayName.isEmpty ? '?' : user.displayName[0].toUpperCase())
+                                  : null,
+                            ),
+                            title: Text(user.displayName, style: AppTextStyles.labelLarge),
+                            subtitle: Text('@${user.username}'),
+                            trailing: TextButton(
+                              onPressed: () async {
+                                await ref
+                                    .read(roomMembersProvider(widget.room.id).notifier)
+                                    .addMember(user.id);
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(content: Text('${user.displayName} invited to room')),
+                                );
+                              },
+                              child: const Text('Invite'),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -220,31 +313,12 @@ class _RoomMembersScreenState extends ConsumerState<RoomMembersScreen> {
   }
 
   void _makeUserAdmin(dynamic member) {
+    ref.read(roomMembersProvider(widget.room.id).notifier).makeAdmin(member.id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${member.displayName} is now a room admin'),
         duration: const Duration(seconds: 2),
       ),
     );
-    // TODO: Implement admin assignment in room_members_provider
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()}y ago';
-    } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()}mo ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'now';
-    }
   }
 }

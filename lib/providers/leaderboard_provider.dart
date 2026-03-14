@@ -8,25 +8,31 @@ final leaderboardProvider = StateNotifierProvider<LeaderboardNotifier, Leaderboa
   return LeaderboardNotifier(AppwriteService());
 });
 
+enum LeaderboardPeriod { weekly, monthly, allTime }
+
 class LeaderboardState {
   final List<UserAccount> entries;
   final bool isLoading;
+  final LeaderboardPeriod period;
   final String? error;
 
   LeaderboardState({
     this.entries = const [],
     this.isLoading = false,
+    this.period = LeaderboardPeriod.weekly,
     this.error,
   });
 
   LeaderboardState copyWith({
     List<UserAccount>? entries,
     bool? isLoading,
+    LeaderboardPeriod? period,
     String? error,
   }) {
     return LeaderboardState(
       entries: entries ?? this.entries,
       isLoading: isLoading ?? this.isLoading,
+      period: period ?? this.period,
       error: error ?? this.error,
     );
   }
@@ -37,8 +43,9 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
 
   LeaderboardNotifier(this._appwrite) : super(LeaderboardState());
 
-  Future<void> fetchLeaderboard() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> fetchLeaderboard({LeaderboardPeriod? period}) async {
+    final targetPeriod = period ?? state.period;
+    state = state.copyWith(isLoading: true, period: targetPeriod, error: null);
     try {
       late final dynamic response;
       try {
@@ -46,7 +53,6 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.usersCollection,
           queries: [
-            Query.orderDesc('xp'),
             Query.limit(50),
           ],
         );
@@ -55,15 +61,33 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
           databaseId: AppwriteConstants.databaseId,
           collectionId: AppwriteConstants.usersCollection,
           queries: [
-            Query.orderDesc('reputation'),
             Query.limit(50),
           ],
         );
       }
-      final entries = response.documents.map((doc) => UserAccount.fromMap(doc.data)).toList();
+
+      final List<UserAccount> rawEntries =
+          response.documents.map<UserAccount>((doc) => UserAccount.fromMap(doc.data)).toList();
+      final entries = [...rawEntries]
+        ..sort((a, b) => _scoreFor(b, targetPeriod).compareTo(_scoreFor(a, targetPeriod)));
+
       state = state.copyWith(entries: entries, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  int scoreFor(UserAccount user) => _scoreFor(user, state.period);
+
+  int _scoreFor(UserAccount user, LeaderboardPeriod period) {
+    switch (period) {
+      case LeaderboardPeriod.weekly:
+        return user.weeklyXp;
+      case LeaderboardPeriod.monthly:
+        final estimatedMonthly = user.weeklyXp * 4;
+        return estimatedMonthly > 0 ? estimatedMonthly : user.xp;
+      case LeaderboardPeriod.allTime:
+        return user.xp;
     }
   }
 }

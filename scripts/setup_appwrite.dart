@@ -27,19 +27,30 @@ int _created = 0;
 int _skipped = 0;
 int _errors = 0;
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
+  // Safety guard: wipe is destructive. Require explicit --wipe flag.
+  final doWipe = args.contains('--wipe');
+
   _client = Client()
       .setEndpoint(_endpoint)
       .setProject(_projectId)
-      .setKey(_apiKey)
-      .setSelfSigned(status: true);
+      .setKey(_apiKey);
+  // Do NOT call setSelfSigned() in production. Only enable for local dev:
+  // .setSelfSigned(status: true)
 
   _db = Databases(_client);
   _storage = Storage(_client);
 
   _banner('VERSZ APPWRITE SCHEMA v3');
 
-  await _wipe();
+  if (doWipe) {
+    print('WARNING: --wipe flag detected. All existing collections and buckets will be deleted.');
+    print('Press Ctrl+C within 5 seconds to abort...');
+    await Future.delayed(const Duration(seconds: 5));
+    await _wipe();
+  } else {
+    _section('SKIPPING WIPE (pass --wipe to destroy and rebuild)');
+  }
   await _ensureDatabase();
   await _createCollections();
   await _createBuckets();
@@ -102,15 +113,15 @@ Future<void> _createCollections() async {
   _section('COLLECTIONS (22 total)');
 
   await _col('users', 'Users', perms: _anyRead, attrs: [
+    _S('userId', 255, req: true),
     _S('username', 255, req: true),
     _S('displayName', 255, req: true),
-    _S('email', 255),
+    _S('email', 255, req: true),
     _S('avatar', 500),
     _S('coverImage', 500),
     _S('bio', 1000),
     _S('website', 255),
     _I('xp', req: true, def: 0, min: 0, max: 99999999),
-    _I('reputation', req: true, def: 0, min: 0, max: 99999999),
     _I('weeklyXp', req: true, def: 0, min: 0, max: 99999999),
     _I('followersCount', req: true, def: 0, min: 0, max: 9999999),
     _I('followingCount', req: true, def: 0, min: 0, max: 9999999),
@@ -121,7 +132,7 @@ Future<void> _createCollections() async {
     _I('longestStreak', req: true, def: 0, min: 0, max: 9999),
     _D('winRate', def: 0.0, min: 0.0, max: 100.0),
     _B('isVerified', req: true, def: false),
-    _B('isOnline', req: true, def: false),
+    _B('isOnline', req: true, def: true),
     _B('isPrivate', req: true, def: false),
     _S('messagingPrivacy', 32, def: 'everyone'),
     _S('notifPrefs', 2000, def: '{}'),
@@ -131,6 +142,7 @@ Future<void> _createCollections() async {
     _S('createdAt', 40),
     _S('updatedAt', 40),
   ], idxs: [
+    _Idx('user_id_idx', 'key', ['userId'], ['asc']),
     _Idx('username_unique', 'unique', ['username'], ['asc']),
     _Idx('username_ft', 'fulltext', ['username'], ['asc']),
     _Idx('display_name_ft', 'fulltext', ['displayName'], ['asc']),
@@ -168,6 +180,9 @@ Future<void> _createCollections() async {
     _Idx('category_idx', 'key', ['category'], ['asc']),
     _Idx('creator_idx', 'key', ['creatorId'], ['asc']),
     _Idx('status_idx', 'key', ['status'], ['asc']),
+    _Idx('status_created_idx', 'key', ['status', 'createdAt'], ['asc', 'desc']),
+    _Idx('category_created_idx', 'key', ['category', 'createdAt'], ['asc', 'desc']),
+    _Idx('creator_created_idx', 'key', ['creatorId', 'createdAt'], ['asc', 'desc']),
     _Idx('agree_idx', 'key', ['agreeCount'], ['desc']),
     _Idx('trending_idx', 'key', ['trendingScore'], ['desc']),
     _Idx('community_idx', 'key', ['communityId'], ['asc']),
@@ -190,12 +205,14 @@ Future<void> _createCollections() async {
     _S('updatedAt', 40),
   ], idxs: [
     _Idx('debate_idx', 'key', ['debateId'], ['asc']),
+    _Idx('debate_created_idx', 'key', ['debateId', 'createdAt'], ['asc', 'desc']),
     _Idx('parent_idx', 'key', ['parentId'], ['asc']),
     _Idx('user_idx', 'key', ['userId'], ['asc']),
+    _Idx('user_created_idx', 'key', ['userId', 'createdAt'], ['asc', 'desc']),
     _Idx('is_deleted_idx', 'key', ['isDeleted'], ['asc']),
   ]);
 
-  await _col('votes', 'Votes', perms: _userOnly, attrs: [
+  await _col('votes', 'Votes', perms: _ownerWrite, attrs: [
     _S('debateId', 255, req: true),
     _S('userId', 255, req: true),
     _S('side', 16, req: true),
@@ -204,9 +221,11 @@ Future<void> _createCollections() async {
     _Idx('unique_vote', 'unique', ['debateId', 'userId'], ['asc', 'asc']),
     _Idx('debate_idx', 'key', ['debateId'], ['asc']),
     _Idx('user_idx', 'key', ['userId'], ['asc']),
+    _Idx('user_created_idx', 'key', ['userId', 'createdAt'], ['asc', 'desc']),
+    _Idx('debate_created_idx', 'key', ['debateId', 'createdAt'], ['asc', 'desc']),
   ]);
 
-  await _col('likes', 'Likes', perms: _userOnly, attrs: [
+  await _col('likes', 'Likes', perms: _ownerWrite, attrs: [
     _S('debateId', 255, req: true),
     _S('userId', 255, req: true),
     _S('createdAt', 40),
@@ -216,7 +235,7 @@ Future<void> _createCollections() async {
     _Idx('user_idx', 'key', ['userId'], ['asc']),
   ]);
 
-  await _col('saves', 'Saves', perms: _userOnly, attrs: [
+  await _col('saves', 'Saves', perms: _ownerWrite, attrs: [
     _S('userId', 255, req: true),
     _S('debateId', 255, req: true),
     _S('createdAt', 40),
@@ -226,7 +245,7 @@ Future<void> _createCollections() async {
     _Idx('debate_idx', 'key', ['debateId'], ['asc']),
   ]);
 
-  await _col('connections', 'Connections', perms: _userOnly, attrs: [
+  await _col('connections', 'Connections', perms: _ownerWrite, attrs: [
     _S('requesterId', 255, req: true),
     _S('receiverId', 255, req: true),
     _S('status', 24, req: true),
@@ -239,7 +258,9 @@ Future<void> _createCollections() async {
     _Idx('status_idx', 'key', ['status'], ['asc']),
   ]);
 
-  await _col('chats', 'Chats', perms: _userOnly, attrs: [
+  // docSecurity:true — each chat document gets per-participant read permissions
+  // so users only receive their own conversations from realtime and list queries.
+  await _col('chats', 'Chats', perms: _userOnly, docSecurity: true, attrs: [
     _S('participants', 255, req: true, arr: true),
     _B('isGroup', req: true, def: false),
     _S('groupName', 255),
@@ -257,11 +278,13 @@ Future<void> _createCollections() async {
     _Idx('updated_idx', 'key', ['updatedAt'], ['desc']),
   ]);
 
-  await _col('messages', 'Messages', perms: _userOnly, attrs: [
+  // docSecurity:true — message documents should only be readable by participants.
+  await _col('messages', 'Messages', perms: _userOnly, docSecurity: true, attrs: [
     _S('chatId', 255, req: true),
     _S('senderId', 255, req: true),
     _S('senderName', 255),
     _S('senderAvatar', 500),
+    _S('clientNonce', 128),
     _S('content', 4000),
     _S('type', 24, req: true, def: 'text'),
     _S('status', 24, req: true, def: 'sent'),
@@ -269,7 +292,10 @@ Future<void> _createCollections() async {
     _S('createdAt', 40),
   ], idxs: [
     _Idx('chat_idx', 'key', ['chatId'], ['asc']),
+    _Idx('chat_created_idx', 'key', ['chatId', 'createdAt'], ['asc', 'desc']),
     _Idx('sender_idx', 'key', ['senderId'], ['asc']),
+    _Idx('sender_created_idx', 'key', ['senderId', 'createdAt'], ['asc', 'desc']),
+    _Idx('nonce_lookup_idx', 'key', ['chatId', 'senderId', 'clientNonce'], ['asc', 'asc', 'asc']),
     _Idx('status_idx', 'key', ['status'], ['asc']),
   ]);
 
@@ -306,7 +332,8 @@ Future<void> _createCollections() async {
     _Idx('viewer_idx', 'key', ['viewerId'], ['asc']),
   ]);
 
-  await _col('notifications', 'Notifications', perms: _userOnly, attrs: [
+  // docSecurity:true — notification documents are scoped per recipient.
+  await _col('notifications', 'Notifications', perms: _userOnly, docSecurity: true, attrs: [
     _S('userId', 255, req: true),
     _S('senderId', 255),
     _S('type', 100, req: true),
@@ -321,7 +348,8 @@ Future<void> _createCollections() async {
     _Idx('created_idx', 'key', ['createdAt'], ['desc']),
   ]);
 
-  await _col('communities', 'Communities', perms: _anyRead, attrs: [
+  // NOTE: collection ID is 'rooms' to match AppwriteConstants.rooms used at runtime.
+  await _col('rooms', 'Rooms', perms: _anyRead, attrs: [
     _S('name', 255, req: true),
     _S('description', 4000),
     _S('creatorId', 255, req: true),
@@ -342,7 +370,8 @@ Future<void> _createCollections() async {
     _Idx('category_idx', 'key', ['category'], ['asc']),
   ]);
 
-  await _col('community_members', 'Community Members', perms: _userOnly, attrs: [
+  // NOTE: collection ID is 'room_members' to match AppwriteConstants.roomMembers used at runtime.
+  await _col('room_members', 'Room Members', perms: _ownerWrite, attrs: [
     _S('communityId', 255, req: true),
     _S('userId', 255, req: true),
     _S('role', 50, req: true, def: 'member'),
@@ -537,11 +566,15 @@ Future<void> _col(
   required List<String> perms,
   required List<_A> attrs,
   required List<_Idx> idxs,
+  // Enable per-document security so individual users can only access
+  // their own documents. Required for chats, messages, notifications.
+  bool docSecurity = false,
 }) async {
+  var collectionExists = false;
   try {
     await _db.getCollection(databaseId: _databaseId, collectionId: id);
     _skip('Collection: $name');
-    return;
+    collectionExists = true;
   } on AppwriteException catch (e) {
     if (e.code != 404) {
       _err('Collection: $name', e);
@@ -549,22 +582,24 @@ Future<void> _col(
     }
   }
 
-  try {
-    await _db.createCollection(
-      databaseId: _databaseId,
-      collectionId: id,
-      name: name,
-      permissions: perms,
-      documentSecurity: false,
-      enabled: true,
-    );
-    _ok('Collection: $name');
-  } catch (e) {
-    _err('Collection: $name', e);
-    return;
-  }
+  if (!collectionExists) {
+    try {
+      await _db.createCollection(
+        databaseId: _databaseId,
+        collectionId: id,
+        name: name,
+        permissions: perms,
+        documentSecurity: docSecurity,
+        enabled: true,
+      );
+      _ok('Collection: $name');
+    } catch (e) {
+      _err('Collection: $name', e);
+      return;
+    }
 
-  await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
 
   for (final attribute in attrs) {
     try {
@@ -609,8 +644,11 @@ Future<void> _col(
       }
       _ok('  attr $id.${attribute.key}');
     } on AppwriteException catch (e) {
+      final msg = e.message?.toLowerCase() ?? '';
       if (e.code == 409) {
         _skip('  attr $id.${attribute.key}');
+      } else if (msg.contains('attribute_limit_exceeded')) {
+        _skip('  attr $id.${attribute.key} (collection attribute limit reached)');
       } else {
         _err('  attr $id.${attribute.key}', e);
       }
@@ -695,11 +733,13 @@ Future<void> _bucket(
   } on AppwriteException catch (e) {
     if (e.code == 404) {
       try {
+        // fileSecurity:true so each uploaded file is owned by its uploader
+        // and cannot be modified or deleted by other authenticated users.
         await _storage.createBucket(
           bucketId: id,
           name: name,
           permissions: perms,
-          fileSecurity: false,
+          fileSecurity: true,
           enabled: true,
           maximumFileSize: maxSize,
           allowedFileExtensions: exts,
@@ -714,18 +754,29 @@ Future<void> _bucket(
   }
 }
 
+// Public-readable collections (e.g. debates, communities).
+// Any user can read. Creating requires auth. Updates/deletes
+// are intentionally NOT granted at collection level — enforce
+// via document-level permissions or server functions only.
 final _anyRead = [
   Permission.read(Role.any()),
   Permission.create(Role.users()),
-  Permission.update(Role.users()),
-  Permission.delete(Role.users()),
 ];
 
+// Authenticated-read-only collections (e.g. notifications, messages).
+// Any authenticated user can read/create. No collection-level
+// update/delete — must be enforced per-document or server-side.
 final _userOnly = [
   Permission.read(Role.users()),
   Permission.create(Role.users()),
-  Permission.update(Role.users()),
-  Permission.delete(Role.users()),
+];
+
+// Per-owner collections (votes, likes, saves, connections).
+// Collection-level create only; all mutations go through functions
+// or document-level security.
+final _ownerWrite = [
+  Permission.read(Role.users()),
+  Permission.create(Role.users()),
 ];
 
 void _ok(String message) {
@@ -769,21 +820,38 @@ void _printDeploymentNotes() {
 Deployment notes:
 
 1. This script now provisions the live camelCase v3 schema used by Flutter and the Appwrite functions.
-2. Legacy collections like follows, conversations, saved_debates, rooms, and room_members are not recreated.
-3. Required functions to deploy:
+2. Run without --wipe to do a safe additive-only provisioning on an existing database.
+   Use --wipe ONLY on a fresh/staging environment — it deletes ALL collections and buckets first.
+3. Schema is authoritative: collection IDs 'rooms' and 'room_members' are used (previously
+   'communities'/'community_members') — matching AppwriteConstants in the Flutter app.
+4. Authorization model: collection-level update/delete permissions are REMOVED.
+   All mutations that cross document ownership boundaries must use Appwrite Functions
+   with a server-side API key (APPWRITE_API_KEY) — never a client session.
+   Enable documentSecurity:true on chats, messages, and notifications after launch.
+5. Required functions to deploy:
    - send-notification
    - gemini-summary
    - update-trending
    - update-leaderboard
    - check-achievements
-4. Required function environment variables:
+  - update-xp
+  - calculate-winner
+  - anti-spam-check
+  - cast-vote
+6. Recommended function schedules/triggers:
+  - update-trending: cron every 5 minutes (*/5 * * * *)
+  - update-leaderboard: cron every 1 minute (* * * * *)
+  - calculate-winner: call on debate close; optional daily cron for stale active debates
+  - anti-spam-check, update-xp, cast-vote, check-achievements: event-driven via createExecution from app/function flows
+6. Required function environment variables:
    - GEMINI_API_KEY
    - APPWRITE_API_KEY
    - APPWRITE_PROJECT_ID
    - APPWRITE_ENDPOINT
    - DATABASE_ID
    - FIREBASE_SERVICE_JSON
-5. Rotate any leaked or previously committed Appwrite API keys before production deployment.
+7. Function source entrypoint for all listed functions is src/index.js.
+8. Rotate any leaked or previously committed Appwrite API keys before production deployment.
 ''');
 }
 

@@ -148,6 +148,10 @@ Cloud Functions (configured IDs):
 - update-trending
 - update-leaderboard
 - check-achievements
+- update-xp
+- calculate-winner
+- anti-spam-check
+- cast-vote
 
 Functions folder:
 - functions/check-achievements
@@ -155,6 +159,10 @@ Functions folder:
 - functions/send-notification
 - functions/update-leaderboard
 - functions/update-trending
+- functions/update-xp
+- functions/calculate-winner
+- functions/anti-spam-check
+- functions/cast-vote
 
 ## 4) Core Models
 Located in:

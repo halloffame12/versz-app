@@ -13,22 +13,30 @@ class CommentState {
   final List<Comment> comments;
   final bool isLoading;
   final String? error;
+  final bool isPostingComment;
+  final String? postError;
 
   CommentState({
     this.comments = const [],
     this.isLoading = false,
     this.error,
+    this.isPostingComment = false,
+    this.postError,
   });
 
   CommentState copyWith({
     List<Comment>? comments,
     bool? isLoading,
     String? error,
+    bool? isPostingComment,
+    String? postError,
   }) {
     return CommentState(
       comments: comments ?? this.comments,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
+      isPostingComment: isPostingComment ?? this.isPostingComment,
+      postError: postError ?? this.postError,
     );
   }
 }
@@ -65,6 +73,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
   }
 
   Future<void> postComment(String text, {String? parentId, String? side}) async {
+    state = state.copyWith(isPostingComment: true, postError: null);
     try {
       final user = await _appwrite.account.get();
       String username = user.name.isNotEmpty ? user.name : user.$id;
@@ -76,7 +85,7 @@ class CommentNotifier extends StateNotifier<CommentState> {
           documentId: user.$id,
         );
         username = (profile.data['username'] ?? profile.data['displayName'] ?? username).toString();
-        userAvatar = profile.data['avatar']?.toString();
+        userAvatar = (profile.data['avatarUrl'] ?? profile.data['avatar'])?.toString();
       } catch (_) {
         // Keep fallback identity from account object.
       }
@@ -122,8 +131,9 @@ class CommentNotifier extends StateNotifier<CommentState> {
         },
       );
       await fetchComments();
+      state = state.copyWith(isPostingComment: false, postError: null);
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(isPostingComment: false, postError: e.toString());
     }
   }
 

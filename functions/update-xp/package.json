@@ -1,0 +1,9 @@
+{
+    "name": "update-xp",
+    "version": "1.0.0",
+    "description": "Award and cap XP for user actions",
+    "main": "src/index.js",
+    "dependencies": {
+        "node-appwrite": "^14.0.0"
+    }
+}

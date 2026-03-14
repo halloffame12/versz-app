@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
+import 'dart:convert';
 import '../core/services/appwrite_service.dart';
 import '../models/debate.dart';
 import '../core/constants/appwrite_constants.dart';
@@ -75,8 +77,91 @@ class DebateState {
 class DebateNotifier extends StateNotifier<DebateState> {
   final AppwriteService _appwrite;
   static const int _pageSize = 20;
+  RealtimeSubscription? _debatesSubscription;
+  RealtimeSubscription? _interactionsSubscription;
+  Timer? _realtimeRefreshDebounce;
+  bool _refreshingFromRealtime = false;
 
-  DebateNotifier(this._appwrite) : super(DebateState());
+  DebateNotifier(this._appwrite) : super(DebateState()) {
+    _subscribeRealtime();
+  }
+
+  Future<bool> _antiSpamAllows(String userId, String action) async {
+    try {
+      final execution = await _appwrite.functions.createExecution(
+        functionId: 'anti-spam-check',
+        body: jsonEncode({'userId': userId, 'action': action}),
+        xasync: false,
+      );
+      final decoded = jsonDecode(execution.responseBody);
+      if (decoded is Map<String, dynamic>) {
+        return decoded['allowed'] != false;
+      }
+      return true;
+    } catch (_) {
+      // Fail-open: anti-spam check should not hard-block on transport errors.
+      return true;
+    }
+  }
+
+  Future<void> _awardXp({
+    required String userId,
+    required String action,
+    String? referenceId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      await _appwrite.functions.createExecution(
+        functionId: 'update-xp',
+        body: jsonEncode({
+          'userId': userId,
+          'action': action,
+          if (referenceId != null) 'referenceId': referenceId,
+          if (metadata != null) 'metadata': metadata,
+        }),
+        xasync: true,
+      );
+    } catch (_) {
+      // Non-fatal: primary action should succeed even if XP pipeline is down.
+    }
+  }
+
+  void _subscribeRealtime() {
+    final debatesChannel =
+        'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.debatesCollection}.documents';
+    final votesChannel =
+        'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.votesCollection}.documents';
+    final likesChannel =
+        'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.likes}.documents';
+    final commentsChannel =
+        'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.commentsCollection}.documents';
+    final savesChannel =
+        'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.saves}.documents';
+
+    _debatesSubscription = _appwrite.realtime.subscribe([debatesChannel]);
+    _debatesSubscription!.stream.listen((_) => _scheduleRealtimeRefresh());
+
+    _interactionsSubscription =
+        _appwrite.realtime.subscribe([votesChannel, likesChannel, commentsChannel, savesChannel]);
+    _interactionsSubscription!.stream.listen((_) => _scheduleRealtimeRefresh());
+  }
+
+  void _scheduleRealtimeRefresh() {
+    _realtimeRefreshDebounce?.cancel();
+    _realtimeRefreshDebounce = Timer(const Duration(milliseconds: 500), () async {
+      if (_refreshingFromRealtime || state.isLoading) return;
+      _refreshingFromRealtime = true;
+      try {
+        await fetchDebates(
+          categoryId: state.selectedCategoryId,
+          feedType: state.feedType,
+          refresh: true,
+        );
+      } finally {
+        _refreshingFromRealtime = false;
+      }
+    });
+  }
 
   Future<void> fetchDebates({
     String? categoryId,
@@ -106,7 +191,7 @@ class DebateNotifier extends StateNotifier<DebateState> {
       final queries = <String>[Query.limit(_pageSize)];
 
       if (effectiveFeedType == DebateFeedType.trending) {
-        queries.add(Query.orderDesc('agreeCount'));
+        queries.add(Query.orderDesc('trendingScore'));
         queries.add(Query.orderDesc('\$createdAt'));
       } else {
         queries.add(Query.orderDesc('\$createdAt'));
@@ -201,57 +286,34 @@ class DebateNotifier extends StateNotifier<DebateState> {
 
     try {
       final user = await _appwrite.account.get();
-      final existing = await _appwrite.databases.listDocuments(
-        databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.votesCollection,
-        queries: [
-          Query.equal('debateId', debateId),
-          Query.equal('userId', user.$id),
-          Query.limit(1),
-        ],
+      final allowed = await _antiSpamAllows(user.$id, 'vote_cast');
+      if (!allowed) {
+        throw Exception('Rate limit reached. Please wait and try again.');
+      }
+      final execution = await _appwrite.functions.createExecution(
+        functionId: 'cast-vote',
+        body: jsonEncode({
+          'userId': user.$id,
+          'debateId': debateId,
+          'side': newVote == null ? null : (newVote == 1 ? 'agree' : 'disagree'),
+        }),
+        xasync: false,
       );
 
-      if (existing.documents.isNotEmpty) {
-        final doc = existing.documents.first;
-        if (newVote == null) {
-          await _appwrite.databases.deleteDocument(
-            databaseId: AppwriteConstants.databaseId,
-            collectionId: AppwriteConstants.votesCollection,
-            documentId: doc.$id,
-          );
-        } else {
-          await _appwrite.databases.updateDocument(
-            databaseId: AppwriteConstants.databaseId,
-            collectionId: AppwriteConstants.votesCollection,
-            documentId: doc.$id,
-            data: {'side': newVote == 1 ? 'agree' : 'disagree'},
-          );
-        }
-      } else if (newVote != null) {
-        await _appwrite.databases.createDocument(
-          databaseId: AppwriteConstants.databaseId,
-          collectionId: AppwriteConstants.votesCollection,
-          documentId: ID.unique(),
-          data: {
-            'userId': user.$id,
-            'debateId': debateId,
-            'side': newVote == 1 ? 'agree' : 'disagree',
-            'createdAt': DateTime.now().toIso8601String(),
-          },
-        );
+      final decoded = jsonDecode(execution.responseBody);
+      if (decoded is! Map<String, dynamic> || decoded['ok'] != true) {
+        throw Exception('Vote update failed');
       }
 
-      final updated = state.debates.firstWhere((d) => d.id == debateId);
-      await _appwrite.databases.updateDocument(
-        databaseId: AppwriteConstants.databaseId,
-        collectionId: AppwriteConstants.debatesCollection,
-        documentId: debateId,
-        data: {
-          'agreeCount': updated.upvotes,
-          'disagreeCount': updated.downvotes,
-          'updatedAt': DateTime.now().toIso8601String(),
-        },
-      );
+      final agreeCount = (decoded['agreeCount'] as num?)?.toInt();
+      final disagreeCount = (decoded['disagreeCount'] as num?)?.toInt();
+      if (agreeCount != null && disagreeCount != null) {
+        final synced = state.debates.map((d) {
+          if (d.id != debateId) return d;
+          return d.copyWith(upvotes: agreeCount, downvotes: disagreeCount);
+        }).toList();
+        state = state.copyWith(debates: synced);
+      }
     } catch (e) {
       state = state.copyWith(
         debates: previousDebates,
@@ -381,7 +443,6 @@ class DebateNotifier extends StateNotifier<DebateState> {
       final userVotes = <String, int?>{};
       for (final doc in votesRes.documents) {
         final debateId = doc.data['debateId'] as String?;
-        // v3 uses side:'agree'|'disagree'; map back to int for UI compat.
         final side = doc.data['side']?.toString();
         final value = side == 'agree' ? 1 : (side == 'disagree' ? -1 : null);
         if (debateId != null) userVotes[debateId] = value;
@@ -448,6 +509,10 @@ class DebateNotifier extends StateNotifier<DebateState> {
   Future<void> createDebate(Debate debate) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
+      final allowed = await _antiSpamAllows(debate.creatorId, 'debate_created');
+      if (!allowed) {
+        throw Exception('Daily debate creation limit reached. Please try again later.');
+      }
       final documentId = ID.unique();
       String creatorName = 'Unknown';
       String? creatorAvatar;
@@ -469,22 +534,31 @@ class DebateNotifier extends StateNotifier<DebateState> {
         collectionId: AppwriteConstants.debatesCollection,
         documentId: documentId,
         data: {
+          'title': debate.title,
           'topic': debate.title,
           'description': debate.description,
+          'categoryId': debate.categoryId,
           'category': debate.categoryId,
           'creatorId': debate.creatorId,
           'creatorName': creatorName,
           'creatorAvatar': creatorAvatar,
+          'mediaType': debate.mediaType,
+          'mediaUrl': debate.mediaUrl,
           'imageUrl': debate.mediaUrl,
           'agreeCount': 0,
           'disagreeCount': 0,
+          'upvotes': 0,
+          'downvotes': 0,
           'commentCount': 0,
           'viewCount': 0,
           'likeCount': 0,
           'status': 'active',
           'createdAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
         },
       );
+
+      await _awardXp(userId: debate.creatorId, action: 'debate_created', referenceId: documentId);
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -513,5 +587,13 @@ class DebateNotifier extends StateNotifier<DebateState> {
     }
 
     return const [];
+  }
+
+  @override
+  void dispose() {
+    _realtimeRefreshDebounce?.cancel();
+    _debatesSubscription?.close();
+    _interactionsSubscription?.close();
+    super.dispose();
   }
 }

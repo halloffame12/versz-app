@@ -1,36 +1,26 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Future phase support
 
 class NotificationService {
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
-    // 1. Request permissions
+    // Request notification permissions
     await _fcm.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
-    // 2. Initialize local notifications for foreground messages
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    
-    await _localNotifications.initialize(initializationSettings);
-
-    // 3. Handle background messages (handled in main.dart top-level)
-    
-    // 4. Handle foreground messages
+    // Handle foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _showLocalNotification(message);
+      debugPrint('Notification received: ${message.notification?.title}');
     });
 
-    // 5. Handle when app is opened from notification
+    // Handle when app is opened from notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      // Handle navigation or logic when user taps notification
+      debugPrint('Notification opened: ${message.notification?.title}');
     });
   }
 
@@ -38,22 +28,6 @@ class NotificationService {
     return await _fcm.getToken();
   }
 
-  Future<void> _showLocalNotification(RemoteMessage message) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'versz_channel',
-      'Versz Notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-    
-    await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title,
-      message.notification?.body,
-      platformChannelSpecifics,
-    );
-  }
+  // Local notifications stub - requires flutter_local_notifications package
+  // Full implementation pending Phase 7
 }

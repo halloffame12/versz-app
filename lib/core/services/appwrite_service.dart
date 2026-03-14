@@ -13,10 +13,11 @@ class AppwriteService {
   late Realtime realtime;
 
   AppwriteService._internal() {
+    const isProduction = bool.fromEnvironment('dart.vm.product');
     client = Client()
       ..setEndpoint(AppwriteConstants.endpoint)
       ..setProject(AppwriteConstants.projectId)
-      ..setSelfSigned(status: true); // For development
+      ..setSelfSigned(status: !isProduction);
 
     account = Account(client);
     databases = Databases(client);

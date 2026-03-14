@@ -13,6 +13,9 @@ class ConnectionState {
   final List<UserAccount> connectedUsers;
   final List<UserAccount> receivedPendingUsers;
   final List<UserAccount> sentPendingUsers;
+  final List<UserAccount> followers;
+  final List<UserAccount> following;
+  final List<UserAccount> suggestions;
   final bool isLoading;
   final String? error;
 
@@ -22,6 +25,9 @@ class ConnectionState {
     this.connectedUsers = const [],
     this.receivedPendingUsers = const [],
     this.sentPendingUsers = const [],
+    this.followers = const [],
+    this.following = const [],
+    this.suggestions = const [],
     this.isLoading = false,
     this.error,
   });
@@ -32,6 +38,9 @@ class ConnectionState {
     List<UserAccount>? connectedUsers,
     List<UserAccount>? receivedPendingUsers,
     List<UserAccount>? sentPendingUsers,
+    List<UserAccount>? followers,
+    List<UserAccount>? following,
+    List<UserAccount>? suggestions,
     bool? isLoading,
     String? error,
   }) {
@@ -41,6 +50,9 @@ class ConnectionState {
       connectedUsers: connectedUsers ?? this.connectedUsers,
       receivedPendingUsers: receivedPendingUsers ?? this.receivedPendingUsers,
       sentPendingUsers: sentPendingUsers ?? this.sentPendingUsers,
+      followers: followers ?? this.followers,
+      following: following ?? this.following,
+      suggestions: suggestions ?? this.suggestions,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -104,19 +116,39 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
   }
 
   Future<void> follow(String otherUserId) async {
+    final me = await _appwrite.account.get();
     await _upsertStatus(otherUserId, ConnectionStatus.follow);
+    await _notifyUser(
+      userId: otherUserId,
+      senderId: me.$id,
+      type: 'follow',
+      title: 'New Follower',
+      body: 'Someone started following you.',
+    );
+    await fetchNetworkOverview();
   }
 
   Future<void> unfollow(String otherUserId) async {
     await _removeConnection(otherUserId);
+    await fetchNetworkOverview();
   }
 
   Future<void> sendConnectionRequest(String otherUserId) async {
+    final me = await _appwrite.account.get();
     await _upsertStatus(otherUserId, ConnectionStatus.pending);
+    await _notifyUser(
+      userId: otherUserId,
+      senderId: me.$id,
+      type: 'connection_request',
+      title: 'Connection Request',
+      body: 'You received a new connection request.',
+    );
+    await fetchNetworkOverview();
   }
 
   Future<void> withdrawRequest(String otherUserId) async {
     await _removeConnection(otherUserId);
+    await fetchNetworkOverview();
   }
 
   Future<void> acceptRequest(String otherUserId) async {
@@ -137,11 +169,21 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
     await fetchStatus(otherUserId);
     await fetchPendingRequests();
     await fetchConnectedUsers();
+    await fetchFollowersAndFollowing();
+    await fetchSuggestedUsers();
+    await _notifyUser(
+      userId: otherUserId,
+      senderId: me.$id,
+      type: 'connection_accepted',
+      title: 'Request Accepted',
+      body: 'Your connection request has been accepted.',
+    );
   }
 
   Future<void> declineRequest(String otherUserId) async {
     await _removeConnection(otherUserId);
     await fetchPendingRequests();
+    await fetchSuggestedUsers();
   }
 
   Future<void> blockUser(String otherUserId) async {
@@ -150,7 +192,16 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
 
   Future<void> removeConnection(String otherUserId) async {
     await _removeConnection(otherUserId);
-    await fetchConnectedUsers();
+    await fetchNetworkOverview();
+  }
+
+  Future<void> fetchNetworkOverview() async {
+    await Future.wait([
+      fetchConnectedUsers(),
+      fetchPendingRequests(),
+      fetchFollowersAndFollowing(),
+      fetchSuggestedUsers(),
+    ]);
   }
 
   Future<void> fetchConnectedUsers() async {
@@ -228,6 +279,108 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> fetchFollowersAndFollowing() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final me = await _appwrite.account.get();
+      final res = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.connections,
+        queries: [
+          Query.equal('status', ['follow', 'connected']),
+          Query.or([
+            Query.equal('requesterId', me.$id),
+            Query.equal('receiverId', me.$id),
+          ]),
+          Query.limit(200),
+        ],
+      );
+
+      final followers = <UserAccount>[];
+      final following = <UserAccount>[];
+
+      for (final doc in res.documents) {
+        final requester = doc.data['requesterId']?.toString();
+        final receiver = doc.data['receiverId']?.toString();
+        final status = doc.data['status']?.toString();
+        if (requester == null || receiver == null || status == null) continue;
+
+        if (status == 'connected') {
+          final other = requester == me.$id ? receiver : requester;
+          final user = await _getUser(other);
+          if (user != null) {
+            followers.add(user);
+            following.add(user);
+          }
+          continue;
+        }
+
+        if (requester == me.$id && status == 'follow') {
+          final user = await _getUser(receiver);
+          if (user != null) following.add(user);
+        }
+
+        if (receiver == me.$id && status == 'follow') {
+          final user = await _getUser(requester);
+          if (user != null) followers.add(user);
+        }
+      }
+
+      state = state.copyWith(
+        followers: followers,
+        following: following,
+        isLoading: false,
+        error: null,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> fetchSuggestedUsers() async {
+    try {
+      final me = await _appwrite.account.get();
+      final allUsersRes = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.usersCollection,
+        queries: [
+          Query.orderDesc('followers_count'),
+          Query.limit(50),
+        ],
+      );
+
+      final linksRes = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.connections,
+        queries: [
+          Query.or([
+            Query.equal('requesterId', me.$id),
+            Query.equal('receiverId', me.$id),
+          ]),
+          Query.limit(200),
+        ],
+      );
+
+      final excludedIds = <String>{me.$id};
+      for (final doc in linksRes.documents) {
+        final requester = doc.data['requesterId']?.toString();
+        final receiver = doc.data['receiverId']?.toString();
+        if (requester != null) excludedIds.add(requester);
+        if (receiver != null) excludedIds.add(receiver);
+      }
+
+      final suggestions = allUsersRes.documents
+          .map((doc) => UserAccount.fromMap(doc.data))
+          .where((u) => !excludedIds.contains(u.id))
+          .take(12)
+          .toList();
+
+      state = state.copyWith(suggestions: suggestions, error: null);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
     }
   }
 
@@ -323,6 +476,32 @@ class ConnectionNotifier extends StateNotifier<ConnectionState> {
       return UserAccount.fromMap(doc.data);
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<void> _notifyUser({
+    required String userId,
+    required String senderId,
+    required String type,
+    required String title,
+    required String body,
+  }) async {
+    try {
+      await _appwrite.databases.createDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.notificationsCollection,
+        documentId: ID.unique(),
+        data: {
+          'userId': userId,
+          'senderId': senderId,
+          'type': type,
+          'title': title,
+          'body': body,
+          'read': false,
+        },
+      );
+    } catch (_) {
+      // Notification failure should not block social actions.
     }
   }
 

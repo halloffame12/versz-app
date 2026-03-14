@@ -120,11 +120,15 @@ Notification service code: [lib/core/services/notification_service.dart](lib/cor
 
 Functions in repo:
 
-- [functions/send-notification/src/main.js](functions/send-notification/src/main.js)
-- [functions/gemini-summary/src/main.js](functions/gemini-summary/src/main.js)
-- [functions/update-trending/src/main.js](functions/update-trending/src/main.js)
-- [functions/update-leaderboard/src/main.js](functions/update-leaderboard/src/main.js)
-- [functions/check-achievements/src/main.js](functions/check-achievements/src/main.js)
+- [functions/send-notification/src/index.js](functions/send-notification/src/index.js)
+- [functions/gemini-summary/src/index.js](functions/gemini-summary/src/index.js)
+- [functions/update-trending/src/index.js](functions/update-trending/src/index.js)
+- [functions/update-leaderboard/src/index.js](functions/update-leaderboard/src/index.js)
+- [functions/check-achievements/src/index.js](functions/check-achievements/src/index.js)
+- [functions/update-xp/src/index.js](functions/update-xp/src/index.js)
+- [functions/calculate-winner/src/index.js](functions/calculate-winner/src/index.js)
+- [functions/anti-spam-check/src/index.js](functions/anti-spam-check/src/index.js)
+- [functions/cast-vote/src/index.js](functions/cast-vote/src/index.js)
 
 ### 7.1 Required Env Vars
 
@@ -135,9 +139,7 @@ Set for function runtimes:
 - APPWRITE_API_KEY
 - DATABASE_ID
 - GEMINI_API_KEY (for summary)
-- FIREBASE_PROJECT_ID
-- FIREBASE_CLIENT_EMAIL
-- FIREBASE_PRIVATE_KEY
+- FIREBASE_SERVICE_JSON
 
 ### 7.2 Trigger Mapping
 
@@ -145,9 +147,13 @@ Suggested:
 
 - `send-notification`: callable + event-based integrations.
 - `gemini-summary`: debate/vote-driven trigger.
-- `update-trending`: cron hourly.
-- `update-leaderboard`: cron daily.
+- `update-trending`: cron every 5 minutes (`*/5 * * * *`).
+- `update-leaderboard`: cron every 1 minute (`* * * * *`).
+- `calculate-winner`: on debate close; optional daily cron for stale active debates.
 - `check-achievements`: vote/debate/comment activity trigger.
+- `anti-spam-check`: callable from app before write actions.
+- `cast-vote`: callable from app for server-authoritative vote mutations.
+- `update-xp`: callable from app/functions after successful actions.
 
 ## 8. Local Run
 

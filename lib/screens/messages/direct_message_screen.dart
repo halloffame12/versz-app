@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/url_utils.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart' as model;
 import '../../providers/conversation_provider.dart';
@@ -10,7 +11,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../providers/ui_preferences_provider.dart';
-import '../../widgets/common/verz_text_field.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -163,32 +163,52 @@ class _DirectMessageScreenState extends ConsumerState<DirectMessageScreen> {
     final fastRetryAnimations = uiPrefs.fastRetryAnimations;
     final otherParticipantName = _getOtherParticipantName();
     final otherParticipantAvatar = _getOtherParticipantAvatar();
+    final validOtherAvatarUrl = isValidNetworkUrl(otherParticipantAvatar)
+      ? otherParticipantAvatar!
+      : null;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.darkBackground,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         title: Row(
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.surface,
-              backgroundImage: otherParticipantAvatar != null
-                  ? CachedNetworkImageProvider(otherParticipantAvatar)
-                  : null,
-              child: otherParticipantAvatar == null
-                  ? Text(otherParticipantName[0].toUpperCase(),
-                      style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary))
-                  : null,
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.5), width: 2),
+              ),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.darkSurface,
+                backgroundImage: validOtherAvatarUrl != null
+                    ? CachedNetworkImageProvider(validOtherAvatarUrl)
+                    : null,
+                child: validOtherAvatarUrl == null
+                    ? Text(
+                        otherParticipantName[0].toUpperCase(),
+                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.accentBlue, fontWeight: FontWeight.w800),
+                      )
+                    : null,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(otherParticipantName, style: AppTextStyles.labelLarge),
-                  Text('Direct Message', style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary)),
+                  Text(
+                    otherParticipantName,
+                    style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w800),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Direct Message',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.accentBlue, fontSize: 11),
+                  ),
                 ],
               ),
             ),
@@ -196,34 +216,45 @@ class _DirectMessageScreenState extends ConsumerState<DirectMessageScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(Icons.more_vert_rounded, color: AppColors.textMuted),
             onPressed: () => _showOptionsMenu(context),
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.darkBorder),
+        ),
       ),
       body: Column(
         children: [
           if (_isCheckingConnection)
-            const LinearProgressIndicator(minHeight: 2, color: AppColors.primary),
+            const LinearProgressIndicator(minHeight: 2, color: AppColors.accentBlue),
           if (!_isCheckingConnection && !_canMessage)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: AppColors.surface,
-              child: Text(
-                'Messaging is locked. You can only message connected users.',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              color: AppColors.darkSurface,
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline_rounded, color: AppColors.accentOrange, size: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Messaging locked. Connect with this user first.',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.accentOrange),
+                    ),
+                  ),
+                ],
               ),
             ),
           Expanded(
             child: conversationState.isLoading && conversationState.messages.isEmpty
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : ListView.separated(
+                ? const Center(child: CircularProgressIndicator(color: AppColors.accentBlue, strokeWidth: 2))
+                : ListView.builder(
                     controller: _scrollController,
                     reverse: true,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     itemCount: conversationState.messages.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final message = conversationState.messages[index];
                       final isCurrentUser = message.senderId == currentUserId;
@@ -243,12 +274,21 @@ class _DirectMessageScreenState extends ConsumerState<DirectMessageScreen> {
           if (conversationState.isOtherUserTyping)
             Padding(
               padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '$otherParticipantName is typing...',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
-                ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.darkCardBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.darkBorder),
+                    ),
+                    child: Text(
+                      '$otherParticipantName is typing...',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted, fontSize: 11),
+                    ),
+                  ),
+                ],
               ),
             ),
           _buildInputArea(),
@@ -267,136 +307,121 @@ class _DirectMessageScreenState extends ConsumerState<DirectMessageScreen> {
   ) {
     final isFailed = isCurrentUser && message.status.toLowerCase() == 'failed';
 
-    return Align(
-      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (!isCurrentUser) ...[
-            Row(
-              children: [
-                Text(message.senderId, style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold
-                )),
-                const SizedBox(width: 8),
-                Text(timeago.format(message.createdAt),
-                    style: AppTextStyles.labelSmall.copyWith(fontSize: 10)),
-              ],
-            ),
-            const SizedBox(height: 4),
-          ],
-          AnimatedScale(
-            scale: didRetrySucceed ? (subtleFeedback ? 1.018 : 1.03) : 1,
-            duration: Duration(
-              milliseconds: fastRetryAnimations
-                  ? (subtleFeedback ? 120 : 150)
-                  : (subtleFeedback ? 170 : 220),
-            ),
-            curve: Curves.easeOut,
-            child: AnimatedContainer(
-              duration: Duration(
-                milliseconds: fastRetryAnimations
-                    ? (subtleFeedback ? 120 : 150)
-                    : (subtleFeedback ? 170 : 220),
-              ),
-              curve: Curves.easeOut,
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isCurrentUser ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: isCurrentUser ? const Radius.circular(16) : const Radius.circular(4),
-                  bottomRight: isCurrentUser ? const Radius.circular(4) : const Radius.circular(16),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Align(
+        alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          child: Column(
+            crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              AnimatedScale(
+                scale: didRetrySucceed ? (subtleFeedback ? 1.018 : 1.03) : 1,
+                duration: Duration(
+                  milliseconds: fastRetryAnimations
+                      ? (subtleFeedback ? 120 : 150)
+                      : (subtleFeedback ? 170 : 220),
                 ),
-                border: didRetrySucceed
-                    ? Border.all(
-                        color: Colors.white.withValues(alpha: subtleFeedback ? 0.35 : 0.65),
-                        width: 1,
-                      )
-                    : null,
-                boxShadow: didRetrySucceed
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: subtleFeedback ? 0.14 : 0.26),
-                          blurRadius: subtleFeedback ? 8 : 12,
-                          spreadRadius: subtleFeedback ? 0 : 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Text(
-                message.content,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: isCurrentUser ? Colors.white : AppColors.textPrimary,
+                curve: Curves.easeOut,
+                child: AnimatedContainer(
+                  duration: Duration(
+                    milliseconds: fastRetryAnimations
+                        ? (subtleFeedback ? 120 : 150)
+                        : (subtleFeedback ? 170 : 220),
+                  ),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isCurrentUser
+                        ? AppColors.accentBlue.withValues(alpha: 0.18)
+                        : AppColors.darkCardBg,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: isCurrentUser ? const Radius.circular(16) : const Radius.circular(4),
+                      bottomRight: isCurrentUser ? const Radius.circular(4) : const Radius.circular(16),
+                    ),
+                    border: Border.all(
+                      color: didRetrySucceed
+                          ? AppColors.accentBlue.withValues(alpha: subtleFeedback ? 0.5 : 0.8)
+                          : isCurrentUser
+                              ? AppColors.accentBlue.withValues(alpha: 0.4)
+                              : AppColors.darkBorder,
+                    ),
+                    boxShadow: didRetrySucceed
+                        ? [
+                            BoxShadow(
+                              color: AppColors.accentBlue.withValues(alpha: subtleFeedback ? 0.14 : 0.26),
+                              blurRadius: subtleFeedback ? 8 : 12,
+                              spreadRadius: subtleFeedback ? 0 : 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    message.content,
+                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.darkText),
+                  ),
                 ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      timeago.format(message.createdAt),
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted, fontSize: 10),
+                    ),
+                    if (isCurrentUser) ...[
+                      const SizedBox(width: 4),
+                      Icon(_statusIcon(message), size: 11, color: _statusColor(message)),
+                    ],
+                  ],
+                ),
+              ),
+              if (isFailed)
+                TextButton.icon(
+                  onPressed: isRetrying
+                      ? null
+                      : () {
+                          ref
+                              .read(conversationProvider(widget.conversation.id).notifier)
+                              .retryFailedMessage(
+                                message.id,
+                                message.content,
+                                successHoldMillis: fastRetryAnimations ? 160 : 260,
+                              );
+                        },
+                  icon: AnimatedSwitcher(
+                    duration: Duration(milliseconds: fastRetryAnimations ? 120 : 180),
+                    transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                    child: isRetrying
+                        ? const SizedBox(
+                            key: ValueKey('retrying_icon'),
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.errorRed),
+                          )
+                        : const Icon(Icons.refresh_rounded, key: ValueKey('retry_icon'), size: 14),
+                  ),
+                  label: AnimatedSwitcher(
+                    duration: Duration(milliseconds: fastRetryAnimations ? 120 : 180),
+                    transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                    child: Text(
+                      isRetrying ? 'Retrying...' : 'Tap to retry',
+                      key: ValueKey(isRetrying ? 'retrying_label' : 'retry_label'),
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.errorRed,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+            ],
           ),
-          if (isCurrentUser)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, right: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    timeago.format(message.createdAt),
-                    style: AppTextStyles.labelSmall.copyWith(fontSize: 8, color: AppColors.textMuted),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    _statusIcon(message),
-                    size: 12,
-                    color: _statusColor(message),
-                  ),
-                ],
-              ),
-            ),
-          if (isFailed)
-            TextButton.icon(
-              onPressed: isRetrying
-                  ? null
-                  : () {
-                      ref
-                          .read(conversationProvider(widget.conversation.id).notifier)
-                          .retryFailedMessage(
-                            message.id,
-                            message.content,
-                            successHoldMillis: fastRetryAnimations ? 160 : 260,
-                          );
-                    },
-              icon: AnimatedSwitcher(
-                duration: Duration(milliseconds: fastRetryAnimations ? 120 : 180),
-                transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-                child: isRetrying
-                    ? const SizedBox(
-                        key: ValueKey('retrying_icon'),
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(
-                        Icons.refresh_rounded,
-                        key: ValueKey('retry_icon'),
-                        size: 14,
-                      ),
-              ),
-              label: AnimatedSwitcher(
-                duration: Duration(milliseconds: fastRetryAnimations ? 120 : 180),
-                transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-                child: Text(
-                  isRetrying ? 'Retrying...' : 'Retry',
-                  key: ValueKey(isRetrying ? 'retrying_label' : 'retry_label'),
-                ),
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.error,
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -412,34 +437,80 @@ class _DirectMessageScreenState extends ConsumerState<DirectMessageScreen> {
 
   Color _statusColor(model.Message message) {
     final s = message.status.toLowerCase();
-    if (s == 'failed') return AppColors.error;
-    if (s == 'read' || message.isRead) return AppColors.primary;
+    if (s == 'failed') return AppColors.errorRed;
+    if (s == 'read' || message.isRead) return AppColors.accentBlue;
     return AppColors.textMuted;
   }
 
   Widget _buildInputArea() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.surface.withValues(alpha: 0.5))),
+      padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.of(context).viewPadding.bottom + 12),
+      decoration: const BoxDecoration(
+        color: AppColors.darkCardBg,
+        border: Border(top: BorderSide(color: AppColors.darkBorder, width: 1)),
       ),
       child: Row(
         children: [
           Expanded(
-            child: VerzTextField(
-              label: '',
-              controller: _messageController,
-              hintText: 'Type a message...',
-              maxLines: 1,
-              enabled: _canMessage,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.darkSurface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _messageController.text.trim().isNotEmpty
+                      ? AppColors.accentBlue.withValues(alpha: 0.4)
+                      : AppColors.darkBorder,
+                ),
+              ),
+              child: TextField(
+                controller: _messageController,
+                onChanged: (_) => setState(() {}),
+                enabled: _canMessage,
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  hintText: _canMessage ? 'Message...' : 'Connect to send messages',
+                  hintStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                minLines: 1,
+                maxLines: 4,
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          IconButton(
-            onPressed: _canMessage ? _sendMessage : null,
-            icon: const Icon(Icons.send),
-            color: AppColors.primary,
+          const SizedBox(width: 10),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: (_canMessage && _messageController.text.trim().isNotEmpty)
+                  ? const LinearGradient(
+                      colors: [AppColors.accentBlue, AppColors.accentTeal],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : LinearGradient(
+                      colors: [AppColors.darkSurface, AppColors.darkSurface],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              shape: BoxShape.circle,
+              boxShadow: (_canMessage && _messageController.text.trim().isNotEmpty)
+                  ? [BoxShadow(color: AppColors.accentBlue.withValues(alpha: 0.4), blurRadius: 12)]
+                  : [],
+            ),
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              onPressed: (_canMessage && _messageController.text.trim().isNotEmpty) ? _sendMessage : null,
+              icon: Icon(
+                Icons.send_rounded,
+                color: (_canMessage && _messageController.text.trim().isNotEmpty)
+                    ? AppColors.primaryBlack
+                    : AppColors.textMuted,
+                size: 18,
+              ),
+            ),
           ),
         ],
       ),
@@ -449,43 +520,89 @@ class _DirectMessageScreenState extends ConsumerState<DirectMessageScreen> {
   void _showOptionsMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.darkCardBg,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: AppColors.darkBorder),
       ),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.block, color: Colors.red),
-            title: const Text('Block User'),
-            onTap: () {
-              Navigator.pop(context);
-              _blockUser();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.report, color: Colors.orange),
-            title: const Text('Report Conversation'),
-            onTap: () {
-              Navigator.pop(context);
-              _reportConversation();
-            },
-          ),
-        ],
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.darkBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.errorRed.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.block_rounded, color: AppColors.errorRed, size: 18),
+              ),
+              title: Text('Block User', style: AppTextStyles.labelMedium.copyWith(color: AppColors.darkText)),
+              subtitle: Text('Hide their messages', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+              onTap: () {
+                Navigator.pop(context);
+                _blockUser();
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentOrange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.flag_rounded, color: AppColors.accentOrange, size: 18),
+              ),
+              title: Text('Report Conversation', style: AppTextStyles.labelMedium.copyWith(color: AppColors.darkText)),
+              subtitle: Text('Send to moderation', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+              onTap: () {
+                Navigator.pop(context);
+                _reportConversation();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
 
-  void _blockUser() {
-    // Block implementation
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('User blocked. Conversations with them are hidden.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-    // TODO: Integrate with block_provider when created
+  void _blockUser() async {
+    try {
+      final otherId = _getOtherParticipantId();
+      await ref.read(connectionProvider.notifier).blockUser(otherId);
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User blocked. Conversations with them are hidden.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      // Navigate back to conversations
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to block user: $e'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _reportConversation() {

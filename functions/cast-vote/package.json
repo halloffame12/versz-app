@@ -1,0 +1,9 @@
+{
+    "name": "cast-vote",
+    "version": "1.0.0",
+    "description": "Server-side vote casting with deterministic counter deltas",
+    "main": "src/index.js",
+    "dependencies": {
+        "node-appwrite": "^14.0.0"
+    }
+}

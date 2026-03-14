@@ -38,15 +38,23 @@ class NotificationState {
 
 class NotificationNotifier extends StateNotifier<NotificationState> {
   final AppwriteService _appwrite;
+  RealtimeSubscription? _subscription;
+  String? _currentUserId;
 
   NotificationNotifier(this._appwrite) : super(NotificationState()) {
-    _loadNotifications();
+    initialize();
+  }
+
+  Future<void> initialize() async {
+    await _loadNotifications();
+    await _subscribeToRealtime();
   }
 
   Future<void> _loadNotifications() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final user = await _appwrite.account.get();
+      _currentUserId = user.$id;
 
       final response = await _appwrite.databases.listDocuments(
         databaseId: AppwriteConstants.databaseId,
@@ -71,9 +79,75 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     }
   }
 
+  Future<void> _subscribeToRealtime() async {
+    try {
+      if (_currentUserId == null) {
+        final user = await _appwrite.account.get();
+        _currentUserId = user.$id;
+      }
+
+      _subscription?.close();
+      final channel = 'databases.${AppwriteConstants.databaseId}.collections.${AppwriteConstants.notificationsCollection}.documents';
+      _subscription = _appwrite.realtime.subscribe([channel]);
+      _subscription!.stream.listen((event) {
+        final payload = event.payload;
+        if ((payload['userId']?.toString() ?? '') != _currentUserId) {
+          return;
+        }
+
+        final notification = VerszNotification.fromMap(payload);
+        final exists = state.notifications.any((n) => n.id == notification.id);
+        List<VerszNotification> next;
+
+        if (event.events.any((e) => e.contains('.delete'))) {
+          next = state.notifications.where((n) => n.id != notification.id).toList();
+        } else if (exists) {
+          next = state.notifications
+              .map((n) => n.id == notification.id ? notification : n)
+              .toList();
+        } else {
+          next = [notification, ...state.notifications];
+        }
+
+        final unread = next.where((n) => !n.isRead).length;
+        state = state.copyWith(notifications: next, unreadCount: unread);
+      });
+    } catch (_) {
+      // Keep provider functional even if realtime subscription fails.
+    }
+  }
+
   // Public method for refreshing notifications from UI
   Future<void> fetchUserNotifications() async {
     await _loadNotifications();
+  }
+
+  Future<void> createNotification({
+    required String userId,
+    required String type,
+    String? senderId,
+    String? title,
+    String? body,
+    String? payload,
+  }) async {
+    try {
+      await _appwrite.databases.createDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.notificationsCollection,
+        documentId: ID.unique(),
+        data: {
+          'userId': userId,
+          'senderId': senderId,
+          'type': type,
+          'title': title ?? '',
+          'body': body ?? '',
+          'payload': payload,
+          'read': false,
+        },
+      );
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   Future<void> markAsRead(String notificationId) async {
@@ -137,5 +211,11 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
+  }
+
+  @override
+  void dispose() {
+    _subscription?.close();
+    super.dispose();
   }
 }

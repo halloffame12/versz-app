@@ -91,6 +91,20 @@ class RoomMembersNotifier extends StateNotifier<RoomMembersState> {
 
   Future<void> addMember(String userId) async {
     try {
+      final existing = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.roomMembersCollection,
+        queries: [
+          Query.equal('communityId', _roomId),
+          Query.equal('userId', userId),
+          Query.limit(1),
+        ],
+      );
+      if (existing.documents.isNotEmpty) {
+        await _loadMembers();
+        return;
+      }
+
       await _appwrite.databases.createDocument(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.roomMembersCollection,
@@ -161,6 +175,73 @@ class RoomMembersNotifier extends StateNotifier<RoomMembersState> {
 
         await _loadMembers();
       }
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<List<UserAccount>> searchUsers(String query, {int limit = 20}) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    try {
+      final res1 = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.usersCollection,
+        queries: [Query.search('username', q), Query.limit(limit)],
+      );
+
+      dynamic res2;
+      try {
+        res2 = await _appwrite.databases.listDocuments(
+          databaseId: AppwriteConstants.databaseId,
+          collectionId: AppwriteConstants.usersCollection,
+          queries: [Query.search('display_name', q), Query.limit(limit)],
+        );
+      } catch (_) {
+        res2 = null;
+      }
+
+      final merged = <String, UserAccount>{};
+      for (final doc in res1.documents) {
+        final user = UserAccount.fromMap(doc.data);
+        if (user.id.isNotEmpty) merged[user.id] = user;
+      }
+      if (res2 != null) {
+        for (final doc in res2.documents) {
+          final user = UserAccount.fromMap(doc.data);
+          if (user.id.isNotEmpty) merged[user.id] = user;
+        }
+      }
+      return merged.values.toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> makeAdmin(String userId) async {
+    try {
+      final response = await _appwrite.databases.listDocuments(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.roomMembersCollection,
+        queries: [
+          Query.equal('communityId', _roomId),
+          Query.equal('userId', userId),
+          Query.limit(1),
+        ],
+      );
+
+      if (response.documents.isEmpty) return;
+
+      await _appwrite.databases.updateDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.roomMembersCollection,
+        documentId: response.documents.first.$id,
+        data: {
+          'role': 'admin',
+        },
+      );
+
+      await _loadMembers();
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }

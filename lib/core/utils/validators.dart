@@ -14,8 +14,9 @@ class Validators {
 
   static String? username(String? value) {
     if (value == null || value.isEmpty) return 'Username is required';
-    if (value.length < 3) return 'Username too short';
-    if (RegExp(r'\s').hasMatch(value)) return 'Username cannot contain spaces';
+    if (!RegExp(r'^[a-zA-Z0-9_]{3,30}$').hasMatch(value.trim())) {
+      return 'Use 3-30 letters, numbers, or underscores only';
+    }
     return null;
   }
 

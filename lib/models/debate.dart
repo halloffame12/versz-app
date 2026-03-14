@@ -40,12 +40,12 @@ class Debate extends Equatable {
     final disagree = (map['disagreeCount'] ?? map['downvotes'] ?? 0) as int;
     return Debate(
       id: map['\$id'] ?? '',
-      title: map['topic'] ?? '',
+      title: map['title'] ?? map['topic'] ?? '',
       description: map['description'],
-      categoryId: map['category'] ?? '',
+      categoryId: map['categoryId'] ?? map['category'] ?? '',
       creatorId: map['creatorId'] ?? '',
       mediaType: map['mediaType'] ?? 'text',
-      mediaUrl: map['imageUrl'],
+      mediaUrl: map['mediaUrl'] ?? map['imageUrl'],
       upvotes: agree,
       downvotes: disagree,
       commentCount: map['commentCount'] ?? 0,
@@ -59,10 +59,13 @@ class Debate extends Equatable {
 
   Map<String, dynamic> toMap() {
     return {
+      'title': title,
       'topic': title,
       'description': description,
+      'categoryId': categoryId,
       'category': categoryId,
       'creatorId': creatorId,
+      'mediaUrl': mediaUrl,
       'imageUrl': mediaUrl,
       'agreeCount': upvotes,
       'disagreeCount': downvotes,

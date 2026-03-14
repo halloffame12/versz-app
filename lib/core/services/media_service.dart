@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:path_provider/path_provider.dart';
+// import 'package:video_thumbnail/video_thumbnail.dart'; // Future phase support
 
 class MediaService {
   final ImagePicker _picker = ImagePicker();
@@ -24,14 +23,10 @@ class MediaService {
   }
 
   Future<String?> generateThumbnail(String videoPath) async {
-    final String? fileName = await VideoThumbnail.thumbnailFile(
-      video: videoPath,
-      thumbnailPath: (await getTemporaryDirectory()).path,
-      imageFormat: ImageFormat.JPEG,
-      maxHeight: 256,
-      quality: 75,
-    );
-    return fileName;
+    // Stub: video_thumbnail not in dependencies yet
+    // Future: Implement when adding video features
+    // Requires: flutter pub add video_thumbnail
+    return null;
   }
 
   Future<double> getFileSizeInMb(File file) async {

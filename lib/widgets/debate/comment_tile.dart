@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/url_utils.dart';
 import '../../models/comment.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/vote_provider.dart';
@@ -37,8 +38,12 @@ class CommentTile extends ConsumerWidget {
         CircleAvatar(
           radius: 18,
           backgroundColor: AppColors.surfaceLight,
-          backgroundImage: creator?.avatarUrl != null ? CachedNetworkImageProvider(creator!.avatarUrl!) : null,
-          child: creator?.avatarUrl == null ? const Icon(Icons.person, size: 18, color: AppColors.textMuted) : null,
+          backgroundImage: isValidNetworkUrl(creator?.avatarUrl)
+              ? CachedNetworkImageProvider(creator!.avatarUrl!)
+              : null,
+          child: !isValidNetworkUrl(creator?.avatarUrl)
+              ? const Icon(Icons.person, size: 18, color: AppColors.textMuted)
+              : null,
         ),
         const SizedBox(width: 14),
         Expanded(
