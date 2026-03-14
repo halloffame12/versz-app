@@ -9,6 +9,7 @@ import '../../providers/profile_provider.dart';
 import '../../core/utils/url_utils.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 
 class DebateCard extends ConsumerWidget {
   final Debate debate;
@@ -39,12 +40,12 @@ class DebateCard extends ConsumerWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.05),
+          color: AppColors.darkBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -55,7 +56,7 @@ class DebateCard extends ConsumerWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: onTap ?? () => context.push('/debate-detail', extra: debate),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -233,7 +234,7 @@ class DebateCard extends ConsumerWidget {
       height: 8,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.2),
+        color: AppColors.errorRed.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Stack(
@@ -245,12 +246,12 @@ class DebateCard extends ConsumerWidget {
                 height: 8,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFFFFFFF), Color(0xFFCCCCCC)],
+                    colors: [AppColors.successGreen, AppColors.agreeGreen],
                   ),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AppColors.successGreen.withValues(alpha: 0.3),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),

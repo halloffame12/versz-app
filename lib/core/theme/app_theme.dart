@@ -180,7 +180,7 @@ class AppTheme {
           backgroundColor: AppColors.accentPurple,
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -198,7 +198,7 @@ class AppTheme {
           backgroundColor: AppColors.accentPurple,
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -215,7 +215,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: isDark ? AppColors.textPrimary : AppColors.voidBlack,
           side: BorderSide(color: isDark ? AppColors.darkBorderHi : AppColors.darkBorder, width: 2),
-          minimumSize: const Size.fromHeight(44),
+          minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -224,7 +224,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           side: const BorderSide(color: AppColors.darkBorderHi, width: 2),
-          minimumSize: const Size.fromHeight(44),
+          minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );

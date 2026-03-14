@@ -71,7 +71,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [AppColors.accentBlue, AppColors.accentTeal],
+                        colors: [AppColors.accentLight, AppColors.accentPrimary],
                       ),
                     ),
                   ),

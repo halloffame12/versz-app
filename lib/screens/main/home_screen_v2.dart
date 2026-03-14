@@ -31,6 +31,13 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> with TickerProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(debateProvider.notifier).fetchDebates(feedType: DebateFeedType.forYou);
     });
+
+    // Also trigger feed refresh when the user swipes between tabs
+    // (onTap on TabBar only fires for taps, not swipes).
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return;
+      _onTabChanged(_tabController.index);
+    });
   }
 
   @override
@@ -121,8 +128,8 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> with TickerProvider
                           icon: Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              const Icon(Icons.notifications_none_rounded, 
-                                color: Colors.white, size: 28),
+                              Icon(Icons.notifications_none_rounded,
+                                color: text, size: 28),
                               if (unread > 0)
                                 Positioned(
                                   right: -4,

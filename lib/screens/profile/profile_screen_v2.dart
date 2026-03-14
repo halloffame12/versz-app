@@ -68,7 +68,10 @@ class _ProfileScreenV2State extends ConsumerState<ProfileScreenV2> {
       loadError = ps.error;
     }
 
-    if (isLoading && profile == null) {
+    // Show loading spinner while:
+    // - own profile: waiting for authProvider.checkAuthStatus()
+    // - other user: waiting for profileProvider fetch
+    if ((isLoading || (isCurrentUser && authUser == null)) && profile == null) {
       return Scaffold(
         backgroundColor: bg,
         body: const Center(

@@ -620,9 +620,13 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
 
       final response = await _listUserConversations(user.$id);
 
-      final rawConversations = response.documents.map((doc) {
-        final conv = Conversation.fromMap(doc.data);
-        final unread = _decodeUnreadCounts(doc.data['unreadCounts']);
+      // response is Future<dynamic> — cast the documents list first so that
+      // the downstream .map() chains are properly typed as List<Conversation>.
+      final docs = List<dynamic>.from(response.documents as Iterable);
+      final List<Conversation> rawConversations = docs.map<Conversation>((doc) {
+        final data = Map<String, dynamic>.from(doc.data as Map);
+        final conv = Conversation.fromMap(data);
+        final unread = _decodeUnreadCounts(data['unreadCounts']);
         return conv.copyWith(
           unreadCount1: unread[conv.participant1] ?? conv.unreadCount1,
           unreadCount2: unread[conv.participant2] ?? conv.unreadCount2,
@@ -635,7 +639,7 @@ class ConversationsListNotifier extends StateNotifier<ConversationsListState> {
       }
 
       final userMap = await _getUsersMap(userIds);
-      final conversations = rawConversations.map((c) {
+      final List<Conversation> conversations = rawConversations.map<Conversation>((c) {
         final p1 = userMap[c.participant1];
         final p2 = userMap[c.participant2];
           return c.copyWith(
